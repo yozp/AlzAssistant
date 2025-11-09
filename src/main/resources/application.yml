@@ -1,1 +1,12 @@
-spring.application.name=AlzAssistant
+
+spring:
+  application:
+    name: AlzAssistant
+
+server:
+  port: 8126
+  servlet:
+    context-path: /api
+
+
+
