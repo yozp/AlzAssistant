@@ -1,6 +1,7 @@
 package com.yzj.alzassistant.ai;
 
 import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.service.AiServices;
 import jakarta.annotation.Resource;
 import org.springframework.context.annotation.Bean;
@@ -15,8 +16,14 @@ public class AiChatServiceFactory {
     @Resource
     private ChatModel chatModel;
 
+    @Resource
+    private StreamingChatModel streamingChatModel;
+
     @Bean
     public AiChatService aiChatService() {
-        return AiServices.create(AiChatService.class, chatModel);
+        return AiServices.builder(AiChatService.class)
+                .chatModel(chatModel)
+                .streamingChatModel(streamingChatModel)
+                .build();
     }
 }
