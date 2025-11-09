@@ -110,6 +110,26 @@
 
         <!--==========================================================================================-->
 
+        <!-- LangChain4j AI应用开发框架核心库 -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j</artifactId>
+            <version>1.1.0</version>
+        </dependency>
+
+        <!-- LangChain4j OpenAI集成Spring Boot启动器 -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-open-ai-spring-boot-starter</artifactId>
+            <version>1.1.0-beta7</version>
+        </dependency>
+
+        <!-- LangChain4j Reactor响应式编程支持（用于SSE流式输出） -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-reactor</artifactId>
+            <version>1.1.0-beta7</version>
+        </dependency>
 
 
     </dependencies>
