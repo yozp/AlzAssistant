@@ -42,7 +42,7 @@ public class AiChatFacade {
     }
 
     /**
-     * 生成 HTML 模式的代码并保存
+     * 生成对话并保存
      *
      * @param userMessage 用户提示词
      * @return 保存的目录
@@ -75,7 +75,7 @@ public class AiChatFacade {
     }
 
     /**
-     * 生成 HTML 模式的代码并保存（流式）
+     * 生成对话并保存（流式）
      *
      * @param userMessage 用户提示词
      * @return 保存的目录
