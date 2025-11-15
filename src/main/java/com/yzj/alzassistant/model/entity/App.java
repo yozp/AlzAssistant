@@ -52,6 +52,12 @@ public class App implements Serializable {
     @Column("initPrompt")
     private String initPrompt;
 
+     /**
+     * 应用类型
+     */
+    @Column("ChatGenType")
+    private String ChatGenType;
+
     /**
      * 优先级
      */

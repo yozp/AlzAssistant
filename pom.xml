@@ -146,6 +146,12 @@
             <artifactId>caffeine</artifactId>
         </dependency>
 
+        <!-- 使用Redis存储和管理Session/登录态 -->
+        <dependency>
+            <groupId>org.springframework.session</groupId>
+            <artifactId>spring-session-data-redis</artifactId>
+        </dependency>
+
     </dependencies>
 
     <build>

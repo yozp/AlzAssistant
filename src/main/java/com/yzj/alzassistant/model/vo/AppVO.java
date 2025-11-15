@@ -29,19 +29,9 @@ public class AppVO implements Serializable {
     private String initPrompt;
 
     /**
-     * 聊天生成类型（枚举）
+     * 应用类型
      */
     private String chatGenType;
-
-    /**
-     * 部署标识
-     */
-    private String deployKey;
-
-    /**
-     * 部署时间
-     */
-    private LocalDateTime deployedTime;
 
     /**
      * 优先级

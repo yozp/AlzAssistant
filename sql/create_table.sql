@@ -32,7 +32,6 @@ create table if not exists app
     cover      varchar(512)                       null comment '应用封面',
     initPrompt text                               null comment '应用初始化的 prompt',
     priority   int      default 0                 not null comment '优先级',
-
     userId     bigint                             not null comment '创建用户id',
     createTime datetime default CURRENT_TIMESTAMP not null comment '创建时间',
     editTime   datetime default CURRENT_TIMESTAMP not null comment '编辑时间',
@@ -42,6 +41,9 @@ create table if not exists app
     INDEX idx_userId (userId),
     INDEX idx_userId_createTime (userId, createTime)
 ) comment '应用' collate = utf8mb4_unicode_ci;
+
+ALTER TABLE app
+    ADD COLUMN ChatGenType varchar(64) null comment '应用类型';
 
 -- 对话历史表
 create table if not exists chat_history

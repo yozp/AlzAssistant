@@ -205,17 +205,15 @@ public class AppController {
     }
 
     /**
-     * 应用聊天生成代码 1（流式 SSE）
-     * 返回 Flux 对象，并且设置泛型为 ServerSentEvent。使用这种方式可以省略 MediaType
-     * 同时解决前端使用 EventSource 对接目前的接口时，会出现空格丢失问题
+     * 应用与用户聊天（流式）。
      *
-     * @param appId   应用 ID
+     * @param appId   应用主键
      * @param message 用户消息
-     * @param request 请求对象
-     * @return 生成结果流
+     * @param request HttpServletRequest
+     * @return 聊天流式结果
      */
-    @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ServerSentEvent<String>> chatToGenCode(@RequestParam Long appId,
+    @GetMapping(value = "/chat", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<String>> doChatWithSSE(@RequestParam Long appId,
                                                        @RequestParam String message,
                                                        HttpServletRequest request) {
         // 参数校验
@@ -228,20 +226,20 @@ public class AppController {
         // 转换为 ServerSentEvent 格式
         return contentFlux
                 .map(chunk -> {
-                    // 将内容包装成JSON对象
+                    // 将内容包装成JSON对象，解决空格丢失问题
                     Map<String, String> wrapper = Map.of("d", chunk);
                     String jsonData = JSONUtil.toJsonStr(wrapper);
                     return ServerSentEvent.<String>builder()
                             .data(jsonData)
                             .build();
-                })//解决空格丢失问题
+                })
                 .concatWith(Mono.just(
                         // 发送结束事件
                         ServerSentEvent.<String>builder()
                                 .event("done")
                                 .data("")
                                 .build()
-                ));//主动告诉前端生成完成
+                ));
     }
 
     //-------------------------------------------------------------------------------------------------------------------------------

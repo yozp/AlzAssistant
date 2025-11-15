@@ -34,14 +34,9 @@ public class AppQueryRequest extends PageRequest implements Serializable {
     private String initPrompt;
 
     /**
-     * 聊天生成类型（枚举）
+     * 应用类型
      */
     private String chatGenType;
-
-    /**
-     * 部署标识
-     */
-    private String deployKey;
 
     /**
      * 优先级

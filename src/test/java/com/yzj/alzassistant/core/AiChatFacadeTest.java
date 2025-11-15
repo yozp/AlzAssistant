@@ -22,7 +22,8 @@ class AiChatFacadeTest {
     void generateAndSaveFacade() {
         String userMessage = "你好";
         ChatTypeEnum chatTypeEnum = ChatTypeEnum.CHAT_TYPE_ENUM;
-        File file = aiChatFacade.generateAndSaveFacade(userMessage, chatTypeEnum);
+        Long appId = 1L;
+        File file = aiChatFacade.generateAndSaveFacade(userMessage, chatTypeEnum, appId);
         assertNotNull(file);
     }
 
@@ -30,7 +31,8 @@ class AiChatFacadeTest {
     void generateAndSaveFacadeStream() {
         String userMessage = "你好";
         ChatTypeEnum chatTypeEnum = ChatTypeEnum.CHAT_TYPE_ENUM;
-        Flux<String> flux = aiChatFacade.generateAndSaveStreamFacade(userMessage, chatTypeEnum);
+        Long appId = 1L;
+        Flux<String> flux = aiChatFacade.generateAndSaveStreamFacade(userMessage, chatTypeEnum, appId);
         // 阻塞等待所有数据收集完成
         List<String> results = flux.collectList().block();
         assertNotNull(results);
