@@ -26,4 +26,7 @@ public class AiChatServiceFactory {
                 .streamingChatModel(streamingChatModel)
                 .build();
     }
+
+    //AI 对话 => 从数据库中加载对话历史到 Redis => Redis 为 AI 提供对话记忆
+
 }

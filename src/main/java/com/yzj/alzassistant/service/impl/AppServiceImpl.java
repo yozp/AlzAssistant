@@ -14,12 +14,14 @@ import com.yzj.alzassistant.model.entity.User;
 import com.yzj.alzassistant.model.vo.AppVO;
 import com.yzj.alzassistant.model.vo.UserVO;
 import com.yzj.alzassistant.service.AppService;
+import com.yzj.alzassistant.service.ChatHistoryService;
 import com.yzj.alzassistant.service.UserService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -111,6 +113,38 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
     @Override
     public Flux<String> chatToGen(Long appId, String message, User loginUser) {
         return null;
+    }
+
+    //--------------------------------------------------------------------------------------------------------------------
+
+    @Resource
+    private ChatHistoryService chatHistoryService;
+
+    /**
+     * 删除应用时关联删除对话历史
+     *
+     * @param id 应用ID
+     * @return 是否成功
+     */
+    @Override
+    public boolean removeById(Serializable id) {
+        if (id == null) {
+            return false;
+        }
+        // 转换为 Long 类型
+        Long appId = Long.valueOf(id.toString());
+        if (appId <= 0) {
+            return false;
+        }
+        // 先删除关联的对话历史
+        try {
+            chatHistoryService.deleteByAppId(appId);
+        } catch (Exception e) {
+            // 记录日志但不阻止应用删除
+            log.error("删除应用关联对话历史失败: {}", e.getMessage());
+        }
+        // 删除应用
+        return super.removeById(id);
     }
 
 }

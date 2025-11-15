@@ -48,7 +48,7 @@ import java.util.Map;
 @RequestMapping("/app")
 public class AppController {
 
-    @Autowired
+    @Resource
     private AppService appService;
 
     @Resource

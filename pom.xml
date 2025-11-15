@@ -131,6 +131,20 @@
             <version>1.1.0-beta7</version>
         </dependency>
 
+        <!--==========================================================================================-->
+
+        <!-- 引入 Redis 的 Jedis 客户端，以及与 LangChain4j 的整合组件。 -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-community-redis-spring-boot-starter</artifactId>
+            <version>1.1.0-beta7</version>
+        </dependency>
+
+        <!-- 高性能本地缓存库 caffeine -->
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+        </dependency>
 
     </dependencies>
 
