@@ -55,8 +55,8 @@ public class App implements Serializable {
      /**
      * 应用类型
      */
-    @Column("ChatGenType")
-    private String ChatGenType;
+    @Column("chatGenType")
+    private String chatGenType;
 
     /**
      * 优先级

@@ -9,7 +9,7 @@ import lombok.Getter;
 @Getter
 public enum ChatTypeEnum {
 
-    CHAT_TYPE_ENUM("原生 HTML 模式", "html");
+    CHAT_TYPE_ENUM("普通对话模式", "chat");
 
     private final String text;
     private final String value;

@@ -25,7 +25,7 @@ create table if not exists user
 ) comment '用户' collate = utf8mb4_unicode_ci;
 
 -- 应用表
-create table if not exists app
+create table  app
 (
     id         bigint auto_increment comment 'id' primary key,
     appName    varchar(256)                       null comment '应用名称/会话标题',
@@ -43,7 +43,7 @@ create table if not exists app
 ) comment '应用' collate = utf8mb4_unicode_ci;
 
 ALTER TABLE app
-    ADD COLUMN ChatGenType varchar(64) null comment '应用类型';
+    ADD COLUMN chatGenType varchar(64) null comment '应用类型';
 
 -- 对话历史表
 create table if not exists chat_history

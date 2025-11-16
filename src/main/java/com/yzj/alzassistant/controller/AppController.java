@@ -74,8 +74,8 @@ public class AppController {
         // 截取 initPrompt 的前 12 个字符作为应用名称
         String initPrompt = appAddRequest.getInitPrompt();
         app.setAppName(initPrompt.substring(0, Math.min(initPrompt.length(), 12)));
-//        //设置应用类型(默认是聊天应用)
-//        app.setChatType(ChatTypeEnum.CHAT_TYPE_ENUM.getValue());
+        //设置应用类型(默认是聊天应用)
+        app.setChatGenType(ChatTypeEnum.CHAT_TYPE_ENUM.getValue());
         //插入数据库
         boolean result = appService.save(app);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
