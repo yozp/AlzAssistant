@@ -117,7 +117,7 @@
             <version>1.1.0</version>
         </dependency>
 
-        <!-- LangChain4j OpenAI集成Spring Boot启动器 -->
+        <!-- LangChain4j OpenAI集成Spring Boot启动器（主要用于deepseek） -->
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-open-ai-spring-boot-starter</artifactId>
@@ -128,6 +128,20 @@
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-reactor</artifactId>
+            <version>1.1.0-beta7</version>
+        </dependency>
+
+        <!-- LangChain4j 社区版 DashScope 模型集成Spring Boot启动器（主要用于qwen-max） -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-community-dashscope-spring-boot-starter</artifactId>
+            <version>1.1.0-beta7</version>
+        </dependency>
+
+        <!-- LangChain4j 简化RAG功能支持，包含了内置的离线 Embedding 模型 -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-easy-rag</artifactId>
             <version>1.1.0-beta7</version>
         </dependency>
 

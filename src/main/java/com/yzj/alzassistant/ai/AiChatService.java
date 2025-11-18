@@ -1,5 +1,6 @@
 package com.yzj.alzassistant.ai;
 
+import dev.langchain4j.service.Result;
 import dev.langchain4j.service.SystemMessage;
 import reactor.core.publisher.Flux;
 
@@ -23,4 +24,13 @@ public interface AiChatService {
      */
     @SystemMessage(fromResource = "prompt/system_prompt.txt")
     Flux<String> chatToAiStream(String userMessage);
+
+    /**
+     * 与 AI 进行聊天（RAG）
+     * @param userMessage 用户消息
+     * @return AI 回复消息
+     */
+    @SystemMessage(fromResource = "prompt/system_prompt.txt")
+    Result<String> chatWithRag(String userMessage);
+
 }

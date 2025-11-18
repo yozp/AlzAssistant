@@ -40,7 +40,7 @@
                   <a-avatar style="background-color: #1890ff">AI</a-avatar>
                 </div>
                 <div class="message-content">
-                  <div v-if="message.content">{{ message.content }}</div>
+                  <MarkdownRenderer v-if="message.content" :content="message.content" />
                   <div v-if="message.loading" class="loading-indicator">
                     <a-spin size="small" />
                     <span>AI 正在思考...</span>
@@ -178,6 +178,7 @@ import {
   MenuOutlined,
   DeleteOutlined,
 } from '@ant-design/icons-vue'
+import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
@@ -959,6 +960,7 @@ onMounted(() => {
   background: #fff;
   color: #333;
   border: 1px solid #e8e8e8;
+  overflow: visible; /* 允许内容溢出，确保代码块等可以正常显示 */
 }
 
 .message-avatar {

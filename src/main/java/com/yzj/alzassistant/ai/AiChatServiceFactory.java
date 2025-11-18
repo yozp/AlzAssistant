@@ -7,6 +7,7 @@ import dev.langchain4j.community.store.memory.chat.redis.RedisChatMemoryStore;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
+import dev.langchain4j.rag.content.retriever.ContentRetriever;
 import dev.langchain4j.service.AiServices;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +34,9 @@ public class AiChatServiceFactory {
 
     @Resource
     private ChatHistoryService chatHistoryService;
+
+    @Resource
+    private ContentRetriever contentRetriever;
 
     /**
      * 默认提供一个 Bean
@@ -82,6 +86,7 @@ public class AiChatServiceFactory {
                 .chatModel(chatModel)
                 .streamingChatModel(streamingChatModel)
                 .chatMemory(chatMemory)
+                .contentRetriever(contentRetriever)// 开启 RAG 功能
                 .build();
     }
 

@@ -7,7 +7,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/alz_assistant
     username: root
-    password: hsp
+    password: root
   profiles:
     active: local #??????
   # redis
@@ -21,7 +21,6 @@ spring:
     store-type: redis
     # session 30 天过期
     timeout: 2592000
-
 
 
 server:
