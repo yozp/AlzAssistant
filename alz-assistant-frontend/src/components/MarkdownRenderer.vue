@@ -57,8 +57,7 @@ const renderedContent = computed(() => {
 .markdown-content :deep(h4),
 .markdown-content :deep(h5),
 .markdown-content :deep(h6) {
-  margin-top: 12px;
-  margin-bottom: 6px;
+  margin: 1em 0 0.4em 0;
   font-weight: 600;
   line-height: 1.25;
   color: #262626;
@@ -101,19 +100,18 @@ const renderedContent = computed(() => {
 
 /* 段落样式 */
 .markdown-content :deep(p) {
-  margin-bottom: 8px;
-  margin-top: 0;
+  margin: 0.5em 0;
 }
 
 /* 列表样式 */
 .markdown-content :deep(ul),
 .markdown-content :deep(ol) {
-  margin: 6px 0 8px 0;
-  padding-left: 24px;
+  margin: 0.5em 0;
+  padding-left: 1.5em;
 }
 
 .markdown-content :deep(li) {
-  margin: 4px 0;
+  margin: 0.25em 0;
 }
 
 .markdown-content :deep(ul li) {
@@ -129,7 +127,7 @@ const renderedContent = computed(() => {
 .markdown-content :deep(ol ol),
 .markdown-content :deep(ul ol),
 .markdown-content :deep(ol ul) {
-  margin: 4px 0;
+  margin: 0.25em 0;
 }
 
 /* 强调样式 */
@@ -157,9 +155,9 @@ const renderedContent = computed(() => {
   background-color: #f6f8fa;
   border: 1px solid #e1e4e8;
   border-radius: 8px;
-  padding: 12px;
+  padding: 1em;
   overflow-x: auto;
-  margin: 8px 0;
+  margin: 0.8em 0;
   line-height: 1.5;
 }
 
@@ -175,8 +173,8 @@ const renderedContent = computed(() => {
 /* 引用样式 */
 .markdown-content :deep(blockquote) {
   border-left: 4px solid #1890ff;
-  padding: 8px 16px;
-  margin: 8px 0;
+  padding: 0.5em 1em;
+  margin: 0.8em 0;
   background: rgba(24, 144, 255, 0.05);
   color: #595959;
   border-radius: 4px;
@@ -202,7 +200,7 @@ const renderedContent = computed(() => {
 .markdown-content :deep(table) {
   border-collapse: collapse;
   width: 100%;
-  margin: 8px 0;
+  margin: 0.8em 0;
   border: 1px solid #e8e8e8;
   display: block;
   overflow-x: auto;
@@ -232,7 +230,7 @@ const renderedContent = computed(() => {
 .markdown-content :deep(hr) {
   border: none;
   border-top: 1px solid #e8e8e8;
-  margin: 12px 0;
+  margin: 1em 0;
 }
 
 /* 图片样式 */
@@ -240,7 +238,7 @@ const renderedContent = computed(() => {
   max-width: 100%;
   height: auto;
   border-radius: 4px;
-  margin: 8px 0;
+  margin: 0.5em 0;
 }
 
 /* 任务列表 */
