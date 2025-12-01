@@ -17,6 +17,8 @@ import com.yzj.alzassistant.model.enums.ChatHistoryMessageTypeEnum;
 import com.yzj.alzassistant.model.enums.ChatTypeEnum;
 import com.yzj.alzassistant.model.vo.AppVO;
 import com.yzj.alzassistant.model.vo.UserVO;
+import com.yzj.alzassistant.monitor.MonitorContext;
+import com.yzj.alzassistant.monitor.MonitorContextHolder;
 import com.yzj.alzassistant.service.AppService;
 import com.yzj.alzassistant.service.ChatHistoryService;
 import com.yzj.alzassistant.service.UserService;
@@ -132,9 +134,16 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         }
         // 5. 通过校验后，添加用户消息到对话历史
         chatHistoryService.addChatMessage(appId, message, ChatHistoryMessageTypeEnum.USER.getValue(), loginUser.getId());
-        // 6. 调用 AI 生成代码
+        // 6. 设置监控上下文
+        MonitorContextHolder.setContext(
+                MonitorContext.builder()
+                        .userId(loginUser.getId().toString())
+                        .appId(appId.toString())
+                        .build()
+        );
+        // 7. 调用 AI 生成代码
         Flux<String> contentFlux  = aiChatFacade.generateAndSaveStreamFacade(message, chatTypeEnum, appId);
-        // 7. 收集AI响应内容并在完成后记录到对话历史
+        // 8. 收集AI响应内容并在完成后记录到对话历史
         StringBuilder aiResponseBuilder = new StringBuilder();
         return contentFlux
                 .map(chunk -> {
@@ -153,6 +162,10 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
                     // 如果AI回复失败，也要记录错误消息
                     String errorMessage = "AI回复失败: " + error.getMessage();
                     chatHistoryService.addChatMessage(appId, errorMessage, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
+                })
+                .doFinally(signalType -> {
+                    // 流结束时清理（无论成功/失败/取消）
+                    MonitorContextHolder.clearContext();
                 });
     }
 

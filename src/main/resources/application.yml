@@ -45,4 +45,16 @@ knife4j:
     language: zh_cn
 
 
+# 应用监控端点配置
+management:
+  endpoints: # 暴露的监控端点
+    web:
+      exposure:
+        include: health,info,prometheus # 暴露健康检查、应用信息、Prometheus指标端点
+  endpoint: # 端点配置
+    health:
+      show-details: always # 显示健康检查详情
+
+
+
 

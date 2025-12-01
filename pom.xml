@@ -175,6 +175,20 @@
             <version>1.19.1</version>
         </dependency>
 
+        <!--==========================================================================================-->
+
+        <!-- 应用监控端点，提供健康检查、指标收集等功能 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- Prometheus监控支持，将应用指标暴露为Prometheus格式 -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+
     </dependencies>
 
     <build>
