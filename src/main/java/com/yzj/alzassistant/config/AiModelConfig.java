@@ -2,6 +2,7 @@ package com.yzj.alzassistant.config;
 
 import com.yzj.alzassistant.monitor.AiModelMonitorListener;
 import dev.langchain4j.community.model.dashscope.QwenStreamingChatModel;
+import dev.langchain4j.model.ollama.OllamaStreamingChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import jakarta.annotation.Resource;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,24 +22,42 @@ public class AiModelConfig {
     @Resource
     private AiModelMonitorListener aiModelMonitorListener;
 
-    @Value("${langchain4j.community.dashscope.streaming-chat-model.api-key}")
-    private String apiKey;
+    @Value("${langchain4j.ollama.streaming-chat-model.base-url}")
+    private String baseUrl;
 
-    @Value("${langchain4j.community.dashscope.streaming-chat-model.model-name}")
+    @Value("${langchain4j.ollama.streaming-chat-model.model-name}")
     private String modelName;
-
-    @Value("${langchain4j.community.dashscope.streaming-chat-model.max-tokens:8129}")
-    private Integer maxTokens;
 
     @Bean
     @Primary
     public StreamingChatModel streamingChatModel() {
-        return QwenStreamingChatModel.builder()
-                .apiKey(apiKey)
+        return OllamaStreamingChatModel.builder()
+                .baseUrl(baseUrl)
                 .modelName(modelName)
-                .maxTokens(maxTokens)
                 .listeners(List.of(aiModelMonitorListener))
                 .build();
     }
+
+    //---------------------------------------------------------------------------------------------------------------------------
+
+//    @Value("${langchain4j.community.dashscope.streaming-chat-model.api-key}")
+//    private String apiKey;
+//
+//    @Value("${langchain4j.community.dashscope.streaming-chat-model.model-name}")
+//    private String modelName;
+//
+//    @Value("${langchain4j.community.dashscope.streaming-chat-model.max-tokens:8129}")
+//    private Integer maxTokens;
+//
+//    @Bean
+//    @Primary
+//    public StreamingChatModel streamingChatModel() {
+//        return QwenStreamingChatModel.builder()
+//                .apiKey(apiKey)
+//                .modelName(modelName)
+//                .maxTokens(maxTokens)
+//                .listeners(List.of(aiModelMonitorListener))
+//                .build();
+//    }
 }
 

@@ -138,6 +138,13 @@
             <version>1.1.0-beta7</version>
         </dependency>
 
+        <!-- LangChain4j Ollama集成Spring Boot启动器 -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-ollama-spring-boot-starter</artifactId>
+            <version>1.1.0-beta7</version>
+        </dependency>
+
         <!-- LangChain4j 简化RAG功能支持，包含了内置的离线 Embedding 模型 -->
         <dependency>
             <groupId>dev.langchain4j</groupId>
@@ -201,3 +208,4 @@
     </build>
 
 </project>
+

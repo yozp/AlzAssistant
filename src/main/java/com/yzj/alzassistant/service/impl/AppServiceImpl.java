@@ -122,11 +122,11 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         // 2. 查询应用信息
         App app = this.getById(appId);
         ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
-        // 3. 验证用户是否有权限访问该应用，仅本人可以生成代码
+        // 3. 验证用户是否有权限访问该应用，仅本人可以生成对话
         if (!app.getUserId().equals(loginUser.getId())) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限访问该应用");
         }
-        // 4. 获取应用的代码生成类型
+        // 4. 获取应用的对话生成类型
         String chatGenType = app.getChatGenType();
         ChatTypeEnum chatTypeEnum = ChatTypeEnum.getEnumByValue(chatGenType);
         if (chatTypeEnum == null) {
@@ -141,7 +141,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
                         .appId(appId.toString())
                         .build()
         );
-        // 7. 调用 AI 生成代码
+        // 7. 调用 AI 生成回复
         Flux<String> contentFlux  = aiChatFacade.generateAndSaveStreamFacade(message, chatTypeEnum, appId);
         // 8. 收集AI响应内容并在完成后记录到对话历史
         StringBuilder aiResponseBuilder = new StringBuilder();
