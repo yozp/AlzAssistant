@@ -2,6 +2,9 @@ package com.yzj.alzassistant.ai;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.yzj.alzassistant.ai.tools.TimeInfoTool;
+import com.yzj.alzassistant.ai.tools.WebScrapingTool;
+import com.yzj.alzassistant.ai.tools.WebSearchTool;
 import com.yzj.alzassistant.service.ChatHistoryService;
 import dev.langchain4j.community.store.memory.chat.redis.RedisChatMemoryStore;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
@@ -37,6 +40,19 @@ public class AiChatServiceFactory {
 
     @Resource
     private ContentRetriever contentRetriever;
+
+    //--------------------------------------------------------------------------------------------------------------------
+
+    @Resource
+    private TimeInfoTool timeInfoTool;
+
+    @Resource
+    private WebScrapingTool webScrapingTool;
+
+    @Resource
+    private WebSearchTool webSearchTool;
+
+    //--------------------------------------------------------------------------------------------------------------------
 
     /**
      * 默认提供一个 Bean
@@ -81,10 +97,13 @@ public class AiChatServiceFactory {
                 .chatMemoryStore(redisChatMemoryStore)
                 .maxMessages(20)
                 .build();
-        chatHistoryService.loadChatHistoryToMemory(appId, chatMemory,20);
+        chatHistoryService.loadChatHistoryToMemory(appId, chatMemory, 20);
         return AiServices.builder(AiChatService.class)
                 .chatModel(chatModel)
                 .streamingChatModel(streamingChatModel)
+                .tools(timeInfoTool,
+                        webScrapingTool,
+                        webSearchTool)
                 .chatMemory(chatMemory)
                 .contentRetriever(contentRetriever)// 开启 RAG 功能
                 .build();
