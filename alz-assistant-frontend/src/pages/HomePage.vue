@@ -1,64 +1,127 @@
 <template>
   <div id="homePage">
-    <a-layout class="chat-layout">
-      <!-- 主内容区域 -->
-      <a-layout-content class="main-content">
-        <!-- 打开抽屉按钮 -->
-        <a-button
-          type="text"
-          class="drawer-trigger"
-          @click="drawerVisible = true"
-        >
-          <template #icon>
-            <MenuOutlined />
-          </template>
-        </a-button>
-        <!-- 聊天区域 -->
-        <div class="chat-container">
-          <!-- 消息列表 -->
-          <div class="messages-container" ref="messagesContainer">
-            <div v-if="loadingHistory" class="loading-history-wrapper">
-              <a-spin :spinning="true" size="large" />
-              <span class="loading-text">加载对话历史中...</span>
-            </div>
-            <div v-else-if="messages.length === 0 && !isGenerating" class="welcome-section">
-              <div class="welcome-icon">🤖</div>
-              <h2 class="welcome-title">今天有什么可以帮到你?</h2>
-            </div>
+    <div class="page-container">
+      <!-- 左侧侧边栏 -->
+      <div class="sidebar-container" :class="{ 'sidebar-open': isSidebarOpen }">
+        <div class="sidebar-content">
+          <div class="sidebar-header">
+            <span class="sidebar-title">我的对话</span>
+            <a-button type="text" class="close-sidebar-btn" @click="toggleSidebar">
+              <template #icon><MenuFoldOutlined /></template>
+            </a-button>
+          </div>
+          
+          <!-- 新建对话按钮 -->
+          <div class="new-chat-wrapper">
+            <a-button
+              type="primary"
+              block
+              class="new-chat-btn"
+              @click="handleCreateNewApp"
+              :loading="creatingApp"
+            >
+              <template #icon><PlusOutlined /></template>
+              开启新对话
+            </a-button>
+          </div>
 
-            <div v-for="(message, index) in messages" :key="`message-${index}-${message.createTime || index}`" class="message-item">
-              <div v-if="message.type === 'user'" class="user-message">
-                <div class="message-content">{{ message.content }}</div>
-                <div class="message-avatar">
-                  <a-avatar :src="loginUserStore.loginUser.userAvatar">
-                    {{ loginUserStore.loginUser.userName?.[0] || 'U' }}
-                  </a-avatar>
-                </div>
+          <!-- 对话列表 -->
+          <div class="chat-list" ref="chatListRef" @scroll="handleChatListScroll">
+            <div
+              v-for="app in appList"
+              :key="app.id"
+              class="chat-item"
+              :class="{ active: currentAppId === app.id }"
+            >
+              <div class="chat-item-content" @click="handleAppClick(app.id)">
+                <span class="chat-title">{{ app.appName || '新对话' }}</span>
+                <span class="chat-time">{{ formatTime(app.createTime) }}</span>
               </div>
-              <div v-else class="ai-message">
-                <div class="message-avatar">
-                  <a-avatar style="background-color: #1890ff">AI</a-avatar>
+              <a-button
+                type="text"
+                size="small"
+                danger
+                class="delete-btn"
+                @click.stop="handleDeleteApp(app.id, app.appName)"
+                :loading="deletingAppId === app.id"
+              >
+                <template #icon><DeleteOutlined /></template>
+              </a-button>
+            </div>
+            
+            <a-empty v-if="appList.length === 0 && !loadingApps && !loadingMore" description="暂无对话" />
+            <div v-if="loadingApps" class="loading-wrapper"><a-spin :spinning="true" /></div>
+            <div v-if="loadingMore" class="loading-more-wrapper">
+              <a-spin :spinning="true" size="small" />
+              <span class="loading-text">加载中...</span>
+            </div>
+            <div v-if="!pagination.hasMore && appList.length > 0" class="no-more-wrapper">
+              <span class="no-more-text">没有更多了</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧主要内容区域 -->
+      <div class="main-content-area">
+        <!-- 侧边栏开关按钮 (当侧边栏关闭时显示) -->
+        <a-button
+          v-if="!isSidebarOpen"
+          type="text"
+          class="sidebar-trigger"
+          @click="toggleSidebar"
+        >
+          <template #icon><MenuUnfoldOutlined /></template>
+        </a-button>
+
+        <!-- 聊天容器 -->
+        <div class="chat-container">
+          <!-- 消息列表 (可滚动) -->
+          <div class="messages-scroll-area" ref="messagesContainer">
+            <div class="messages-content">
+              <div v-if="loadingHistory" class="loading-history-wrapper">
+                <a-spin :spinning="true" size="large" />
+                <span class="loading-text">加载对话历史中...</span>
+              </div>
+              <div v-else-if="messages.length === 0 && !isGenerating" class="welcome-section">
+                <div class="welcome-icon">🤖</div>
+                <h2 class="welcome-title">今天有什么可以帮到你?</h2>
+              </div>
+
+              <div v-for="(message, index) in messages" :key="`message-${index}-${message.createTime || index}`" class="message-item">
+                <div v-if="message.type === 'user'" class="user-message">
+                  <div class="message-content">{{ message.content }}</div>
+                  <div class="message-avatar">
+                    <a-avatar :src="loginUserStore.loginUser.userAvatar">
+                      {{ loginUserStore.loginUser.userName?.[0] || 'U' }}
+                    </a-avatar>
+                  </div>
                 </div>
-                <div class="message-content">
-                  <MarkdownRenderer v-if="message.content" :content="message.content" />
-                  <div v-if="message.loading" class="loading-indicator">
-                    <a-spin size="small" />
-                    <span>AI 正在思考...</span>
+                <div v-else class="ai-message">
+                  <div class="message-avatar">
+                    <a-avatar style="background-color: #1890ff">AI</a-avatar>
+                  </div>
+                  <div class="message-content">
+                    <MarkdownRenderer v-if="message.content" :content="message.content" />
+                    <div v-if="message.loading" class="loading-indicator">
+                      <a-spin size="small" />
+                      <span>AI 正在思考...</span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- 输入区域 -->
-          <div class="input-container">
+          <!-- 输入区域 (固定底部) -->
+          <div class="input-area-fixed">
             <div class="input-wrapper">
               <a-textarea
                 v-model:value="userInput"
-                placeholder="给 AI 发送消息"
+                placeholder="给 AI 发送消息（按 Enter 发送，Shift+Enter 换行）"
                 :rows="4"
                 :maxlength="1000"
-                @keydown.enter.exact.prevent="sendMessage"
+                @keydown.enter="handleEnterKey"
                 :disabled="isGenerating"
                 class="chat-input"
               />
@@ -76,89 +139,10 @@
                 </a-button>
               </div>
             </div>
-            <div class="input-tips">
-              <a-button type="text" size="small" class="tip-btn">
-                <template #icon>
-                  <BulbOutlined />
-                </template>
-                深度思考
-              </a-button>
-              <a-button type="text" size="small" class="tip-btn">
-                <template #icon>
-                  <GlobalOutlined />
-                </template>
-                联网搜索
-              </a-button>
-            </div>
           </div>
         </div>
-      </a-layout-content>
-    </a-layout>
-
-    <!-- 抽屉式对话列表 -->
-     <a-drawer
-       v-model:open="drawerVisible"
-       title="我的对话"
-       placement="left"
-       :width="280"
-       :closable="true"
-       class="chat-drawer"
-       @after-open="handleDrawerOpen"
-     >
-      <div class="drawer-content">
-        <!-- 新建对话按钮 -->
-        <a-button
-          type="primary"
-          block
-          class="new-chat-btn"
-          @click="handleCreateNewApp"
-          :loading="creatingApp"
-        >
-          <template #icon>
-            <PlusOutlined />
-          </template>
-          开启新对话
-        </a-button>
-
-         <!-- 对话列表 -->
-         <div class="chat-list" ref="chatListRef" @scroll="handleChatListScroll">
-           <div
-             v-for="app in appList"
-             :key="app.id"
-             class="chat-item"
-             :class="{ active: currentAppId === app.id }"
-           >
-             <div class="chat-item-content" @click="handleAppClick(app.id)">
-               <span class="chat-title">{{ app.appName || '新对话' }}</span>
-               <span class="chat-time">{{ formatTime(app.createTime) }}</span>
-             </div>
-             <a-button
-               type="text"
-               size="small"
-               danger
-               class="delete-btn"
-               @click.stop="handleDeleteApp(app.id, app.appName)"
-               :loading="deletingAppId === app.id"
-             >
-               <template #icon>
-                 <DeleteOutlined />
-               </template>
-             </a-button>
-           </div>
-           <a-empty v-if="appList.length === 0 && !loadingApps && !loadingMore" description="暂无对话" />
-           <div v-if="loadingApps" class="loading-wrapper">
-             <a-spin :spinning="true" />
-           </div>
-           <div v-if="loadingMore" class="loading-more-wrapper">
-             <a-spin :spinning="true" size="small" />
-             <span class="loading-text">加载中...</span>
-           </div>
-           <div v-if="!pagination.hasMore && appList.length > 0" class="no-more-wrapper">
-             <span class="no-more-text">没有更多了</span>
-           </div>
-         </div>
       </div>
-    </a-drawer>
+    </div>
   </div>
 </template>
 
@@ -177,14 +161,23 @@ import {
   GlobalOutlined,
   MenuOutlined,
   DeleteOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
 } from '@ant-design/icons-vue'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
 
-// 抽屉状态
-const drawerVisible = ref(false)
+// 侧边栏状态
+const isSidebarOpen = ref(false)
+const toggleSidebar = () => {
+  isSidebarOpen.value = !isSidebarOpen.value
+  // 如果打开侧边栏且未加载过应用列表，则加载
+  if (isSidebarOpen.value && appList.value.length === 0 && loginUserStore.loginUser.id) {
+    loadAppList(true)
+  }
+}
 
 // 应用列表
 const appList = ref<API.AppVO[]>([])
@@ -293,7 +286,11 @@ const loadAppList = async (reset = false) => {
 
       // 如果是首次加载且有应用列表，默认选择第一个
       if (reset && appList.value.length > 0 && !currentAppId.value) {
-        selectApp(appList.value[0].id)
+        // 确保 id 存在
+        const firstAppId = appList.value[0]?.id
+        if (firstAppId) {
+          selectApp(firstAppId)
+        }
       }
     }
   } catch (error) {
@@ -381,8 +378,10 @@ const handleCreateNewApp = async () => {
       await loadAppList(true)
       // 选择新创建的应用
       selectApp(res.data.data)
-      // 关闭抽屉
-      drawerVisible.value = false
+      // 保持侧边栏打开
+      if (!isSidebarOpen.value) {
+        isSidebarOpen.value = true
+      }
     } else {
       message.error('创建失败：' + res.data.message)
     }
@@ -451,6 +450,21 @@ const selectApp = async (appId: number | undefined) => {
   } finally {
     loadingHistory.value = false
   }
+}
+
+// 处理回车键
+const handleEnterKey = (e: KeyboardEvent) => {
+  // 正在输入法输入中，不处理
+  if (e.isComposing) {
+    return
+  }
+  // Shift+Enter 换行，不发送
+  if (e.shiftKey) {
+    return
+  }
+  // 单独按 Enter 发送消息
+  e.preventDefault()
+  sendMessage()
 }
 
 // 发送消息
@@ -677,8 +691,10 @@ const handleAppClick = async (appId: number | undefined) => {
   // 选择应用并加载历史对话
   await selectApp(appId)
   
-  // 关闭抽屉
-  drawerVisible.value = false
+  // 桌面端保持展开，移动端可考虑关闭
+  if (window.innerWidth < 768) {
+    isSidebarOpen.value = false
+  }
   
   // 滚动到顶部，确保能看到最新的对话
   await nextTick()
@@ -733,13 +749,9 @@ const performDeleteApp = async (appId: number) => {
   }
 }
 
-// 处理抽屉打开事件
-const handleDrawerOpen = () => {
-  // 打开抽屉时重新加载应用列表（重置）
-  if (loginUserStore.loginUser.id) {
-    loadAppList(true)
-  }
-}
+// 处理抽屉打开事件 (不需要了，保留函数签名避免报错，或者直接删除引用)
+// const handleDrawerOpen = () => { ... }
+// 实际上上面已经删除了 @after-open="handleDrawerOpen" 绑定
 
 // 页面加载时获取数据
 onMounted(() => {
@@ -747,41 +759,73 @@ onMounted(() => {
   if (loginUserStore.loginUser.id) {
     loadAppList(true)
   }
-  // 初始化临时聊天室（不创建应用，只是准备聊天环境）
-  // 用户发送第一条消息时才会创建应用
 })
 </script>
 
 <style scoped>
 #homePage {
-  min-height: calc(100vh - 64px - 60px); /* 减去header和footer的高度 */
-  overflow-y: auto; /* 允许页面滚动 */
-  overflow-x: hidden;
+  height: calc(100vh - 124px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.chat-layout {
-  min-height: 100%;
+.page-container {
+  display: flex;
+  flex: 1;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
 }
 
-.drawer-trigger {
-  position: fixed;
-  top: 80px;
-  left: 20px;
-  z-index: 10;
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+/* 侧边栏样式 */
+.sidebar-container {
+  width: 0;
+  background-color: #f9f9f9;
+  border-right: 1px solid #eee;
+  transition: width 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  height: 100%;
 }
 
-.drawer-content {
-  height: calc(100vh - 64px);
+.sidebar-container.sidebar-open {
+  width: 260px;
+}
+
+.sidebar-content {
+  width: 260px; /* 保持内容宽度固定，避免挤压时换行 */
+  height: 100%;
   display: flex;
   flex-direction: column;
   padding: 16px;
 }
 
-.new-chat-btn {
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 16px;
-  height: 40px;
+}
+
+.sidebar-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #333;
+}
+
+.close-sidebar-btn {
+  color: #999;
+}
+
+.close-sidebar-btn:hover {
+  color: #333;
+}
+
+.new-chat-wrapper {
+  margin-bottom: 16px;
 }
 
 .chat-list {
@@ -790,126 +834,94 @@ onMounted(() => {
   overflow-x: hidden;
 }
 
-.loading-wrapper {
+/* 右侧主内容样式 */
+.main-content-area {
+  flex: 1;
   display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 20px;
-}
-
-.loading-more-wrapper {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-  padding: 16px;
-  color: #999;
-}
-
-.loading-text {
-  font-size: 12px;
-  color: #999;
-}
-
-.no-more-wrapper {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 16px;
-}
-
-.no-more-text {
-  font-size: 12px;
-  color: #ccc;
-}
-
-.chat-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px;
-  margin-bottom: 8px;
-  border-radius: 8px;
-  transition: background-color 0.2s;
+  flex-direction: column;
   position: relative;
+  min-width: 0; /* 防止子元素溢出 */
+  background: #fff;
 }
 
-.chat-item:hover {
-  background-color: #f5f5f5;
+.sidebar-trigger {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 10;
+  color: #666;
 }
 
-.chat-item:hover .delete-btn {
-  opacity: 1;
+.sidebar-trigger:hover {
+  color: #1890ff;
 }
 
-.chat-item.active {
-  background-color: #e6f7ff;
-}
-
-.chat-item-content {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 1;
-  cursor: pointer;
-  min-width: 0; /* 允许内容收缩 */
-}
-
-.delete-btn {
-  opacity: 0;
-  transition: opacity 0.2s;
-  flex-shrink: 0;
-  margin-left: 8px;
-  color: #ff4d4f;
-}
-
-.delete-btn:hover {
-  color: #ff7875;
-  background-color: #fff1f0;
-}
-
-.chat-title {
-  font-size: 14px;
-  color: #333;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.chat-time {
-  font-size: 12px;
-  color: #999;
-}
-
-.main-content {
-  background: #f5f5f5;
-  min-height: calc(100vh - 64px - 60px);
-  padding-bottom: 20px; /* 底部留出空间 */
-}
-
+/* 聊天容器 */
 .chat-container {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  max-width: 1200px;
-  margin: 0 auto;
   width: 100%;
-  padding: 20px;
-  min-height: calc(100vh - 64px - 60px);
+  max-width: 800px;
+  margin: 0 auto;
+  height: 100%;
 }
 
-.messages-container {
+/* 消息列表区域 */
+.messages-scroll-area {
   flex: 1;
-  padding: 20px 0;
+  overflow-y: auto;
+  padding: 20px 20px 0 20px;
   scroll-behavior: smooth;
-  min-height: 400px; /* 确保有足够的高度 */
 }
 
+.messages-content {
+  padding-bottom: 20px;
+}
+
+/* 输入区域固定 */
+.input-area-fixed {
+  flex-shrink: 0;
+  padding: 20px;
+  background: #fff;
+  border-top: 1px solid #f0f0f0;
+}
+
+.input-wrapper {
+  position: relative;
+  background: #fff;
+  border: 1px solid #d9d9d9;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s;
+}
+
+.input-wrapper:focus-within {
+  border-color: #1890ff;
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.15);
+}
+
+.chat-input {
+  border: none !important;
+  resize: none;
+  padding-right: 50px;
+  box-shadow: none !important;
+}
+
+.input-actions {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+}
+
+/* 消息样式复用 */
 .welcome-section {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 400px;
+  min-height: 300px;
   padding: 40px 0;
 }
 
@@ -920,7 +932,7 @@ onMounted(() => {
 
 .welcome-title {
   font-size: 24px;
-  color: #1890ff;
+  color: #333;
   margin: 0;
 }
 
@@ -943,12 +955,11 @@ onMounted(() => {
 }
 
 .message-content {
-  max-width: 70%;
+  max-width: 85%;
   padding: 12px 16px;
   border-radius: 12px;
   line-height: 1.6;
   word-wrap: break-word;
-  white-space: pre-wrap;
 }
 
 .user-message .message-content {
@@ -957,10 +968,8 @@ onMounted(() => {
 }
 
 .ai-message .message-content {
-  background: #fff;
+  background: #f5f5f5;
   color: #333;
-  border: 1px solid #e8e8e8;
-  overflow: visible; /* 允许内容溢出，确保代码块等可以正常显示 */
 }
 
 .message-avatar {
@@ -972,6 +981,7 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   color: #666;
+  margin-top: 4px;
 }
 
 .loading-history-wrapper {
@@ -979,78 +989,78 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 400px;
-  gap: 16px;
+  padding: 40px;
   color: #666;
+  gap: 10px;
 }
 
-.input-container {
-  padding-top: 20px;
-  padding-bottom: 20px;
-  position: relative;
-  background: #f5f5f5;
-}
-
-.input-wrapper {
-  position: relative;
-  background: #fff;
-  border-radius: 12px;
-  padding: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.chat-input {
-  border: none;
-  resize: none;
-  padding-right: 50px;
-}
-
-.chat-input:focus {
-  box-shadow: none;
-}
-
-.input-actions {
-  position: absolute;
-  bottom: 12px;
-  right: 12px;
-}
-
-.send-btn {
-  border-radius: 8px;
-}
-
-.input-tips {
+/* 对话列表样式 */
+.chat-item {
   display: flex;
-  justify-content: center;
-  gap: 16px;
-  margin-top: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  margin-bottom: 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-.tip-btn {
-  color: #666;
+.chat-item:hover {
+  background-color: #e6e6e6;
 }
 
-.tip-btn:hover {
-  color: #1890ff;
+.chat-item.active {
+  background-color: #e6f7ff;
 }
 
-/* 响应式设计 */
+.chat-item-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.chat-title {
+  font-size: 14px;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-time {
+  font-size: 12px;
+  color: #999;
+}
+
+.delete-btn {
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.chat-item:hover .delete-btn {
+  opacity: 1;
+}
+
+.loading-wrapper, .loading-more-wrapper, .no-more-wrapper {
+  padding: 10px;
+  text-align: center;
+  color: #999;
+  font-size: 12px;
+}
+
+/* 响应式 */
 @media (max-width: 768px) {
-  .drawer-trigger {
-    top: 70px;
-    left: 10px;
+  .sidebar-container.sidebar-open {
+    position: absolute;
+    z-index: 100;
+    height: 100%;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.15);
   }
-
-  .chat-container {
-    padding: 12px;
-  }
-
+  
   .message-content {
-    max-width: 85%;
-  }
-
-  .welcome-title {
-    font-size: 20px;
+    max-width: 90%;
   }
 }
 </style>

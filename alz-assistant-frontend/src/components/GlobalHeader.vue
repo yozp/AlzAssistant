@@ -23,7 +23,7 @@
       <a-col>
         <div class="user-login-status">
           <div v-if="loginUserStore.loginUser.id">
-            <a-dropdown :get-popup-container="(triggerNode: HTMLElement) => triggerNode.parentElement">
+            <a-dropdown>
               <a-space>
                 <a-avatar :src="loginUserStore.loginUser.userAvatar">
                   {{ loginUserStore.loginUser.userName?.[0] || 'U' }}
@@ -31,14 +31,14 @@
                 {{ loginUserStore.loginUser.userName ?? '无名' }}
               </a-space>
               <template #overlay>
-                <a-menu>
-                  <a-menu-item @click="goToProfile">
+                <a-menu class="user-dropdown-menu">
+                  <a-menu-item key="profile" @click="goToProfile">
                     <UserOutlined />
-                    个人信息
+                    <span style="margin-left: 8px">个人信息</span>
                   </a-menu-item>
-                  <a-menu-item @click="doLogout">
+                  <a-menu-item key="logout" @click="doLogout">
                     <LogoutOutlined />
-                    退出登录
+                    <span style="margin-left: 8px">退出登录</span>
                   </a-menu-item>
                 </a-menu>
               </template>
@@ -144,8 +144,8 @@ const doLogout = async () => {
   background: #fff;
   padding: 0 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  position: relative;
-  z-index: 100;
+  height: 64px;
+  line-height: 64px;
 }
 
 .header-left {
@@ -173,6 +173,20 @@ const doLogout = async () => {
 
 .ant-menu-horizontal {
   border-bottom: none !important;
+}
+
+.user-dropdown-menu {
+  min-width: 140px;
+}
+
+.user-dropdown-menu :deep(.ant-dropdown-menu-item) {
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+}
+
+.user-dropdown-menu :deep(.anticon) {
+  font-size: 14px;
 }
 </style>
 

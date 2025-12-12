@@ -21,11 +21,10 @@
 
 <style scoped>
 .footer {
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(10px);
   text-align: center;
   padding: 20px;
-  margin-top: 40px;
   border-top: 1px solid rgba(102, 126, 234, 0.1);
 }
 
