@@ -41,10 +41,10 @@ public class RagRebuildServiceImpl implements RagRebuildService {
             // 重新构建时会追加到现有向量库，如果需要完全重建，需要重启应用
             // 如果需要持久化，应该使用Redis或其他持久化存储
 
-            // 2. 从数据库获取所有激活的知识库文档
+            // 2. 从数据库获取所有激活且未删除的知识库文档
             List<KnowledgeBase> knowledgeBaseList = knowledgeBaseService.list();
             List<KnowledgeBase> activeKnowledgeBaseList = knowledgeBaseList.stream()
-                    .filter(kb -> "active".equals(kb.getStatus()))
+                    .filter(kb -> "active".equals(kb.getStatus()) && (kb.getIsDelete() == null || kb.getIsDelete() == 0))
                     .collect(Collectors.toList());
 
             log.info("找到 {} 个激活的知识库文档", activeKnowledgeBaseList.size());

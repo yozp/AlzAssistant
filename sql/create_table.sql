@@ -71,6 +71,7 @@ create table if not exists knowledge_base
     category   varchar(128)                          null comment '文档分类',
     fileType   varchar(32)                           null comment '文件类型：pdf/txt/docx等',
     filePath   varchar(1024)                         null comment '文件路径',
+    fileUrl    varchar(1024)                         null comment '文件URL（对象存储）',
     status     varchar(32) default 'active'          not null comment '状态：active/inactive',
     userId     bigint                                null comment '上传用户id（管理员）',
     createTime datetime    default CURRENT_TIMESTAMP not null comment '创建时间',
@@ -82,6 +83,9 @@ create table if not exists knowledge_base
     INDEX idx_status (status),
     INDEX idx_createTime (createTime)
 ) comment '知识库文档' collate = utf8mb4_unicode_ci;
+
+-- 为现有knowledge_base表添加fileUrl字段（如果表已存在）
+ALTER TABLE knowledge_base ADD COLUMN fileUrl varchar(1024) null comment '文件URL（对象存储）' AFTER filePath;
 
 -- 知识库分块表（RAG向量检索）
 -- 注意：向量embedding建议存储在专门的向量数据库（如Milvus、Pinecone）中

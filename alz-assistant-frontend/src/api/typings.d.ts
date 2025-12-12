@@ -200,6 +200,7 @@ declare namespace API {
     category?: string
     fileType?: string
     filePath?: string
+    fileUrl?: string
     status?: string
   }
 
@@ -222,6 +223,7 @@ declare namespace API {
     category?: string
     fileType?: string
     filePath?: string
+    fileUrl?: string
     status?: string
   }
 
@@ -233,6 +235,7 @@ declare namespace API {
     category?: string
     fileType?: string
     filePath?: string
+    fileUrl?: string
     status?: string
     userId?: number
     createTime?: string

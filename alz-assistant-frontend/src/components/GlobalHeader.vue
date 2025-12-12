@@ -25,7 +25,7 @@
           <div v-if="loginUserStore.loginUser.id">
             <a-dropdown>
               <a-space>
-                <a-avatar :src="loginUserStore.loginUser.userAvatar">
+                <a-avatar :size="40" :src="loginUserStore.loginUser.userAvatar" style="flex-shrink: 0;">
                   {{ loginUserStore.loginUser.userName?.[0] || 'U' }}
                 </a-avatar>
                 {{ loginUserStore.loginUser.userName ?? '无名' }}
@@ -187,6 +187,16 @@ const doLogout = async () => {
 
 .user-dropdown-menu :deep(.anticon) {
   font-size: 14px;
+}
+
+/* 确保头像图片清晰渲染 */
+:deep(.ant-avatar) {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
+
+:deep(.ant-avatar img) {
+  object-fit: cover;
 }
 </style>
 

@@ -47,6 +47,11 @@ public class KnowledgeBaseVO implements Serializable {
     private String filePath;
 
     /**
+     * 文件URL（对象存储）
+     */
+    private String fileUrl;
+
+    /**
      * 状态：active/inactive
      */
     private String status;

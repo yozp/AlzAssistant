@@ -69,6 +69,12 @@ public class KnowledgeBase implements Serializable {
     private String filePath;
 
     /**
+     * 文件URL（对象存储）
+     */
+    @Column("fileUrl")
+    private String fileUrl;
+
+    /**
      * 状态：active/inactive
      */
     private String status;

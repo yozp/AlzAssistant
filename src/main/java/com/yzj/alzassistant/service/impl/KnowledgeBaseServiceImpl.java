@@ -1,12 +1,17 @@
 package com.yzj.alzassistant.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.date.DateUtil;
+import cn.hutool.core.io.FileUtil;
+import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
+import com.yzj.alzassistant.config.CosClientConfig;
 import com.yzj.alzassistant.exception.BusinessException;
 import com.yzj.alzassistant.exception.ErrorCode;
+import com.yzj.alzassistant.manager.CosManager;
 import com.yzj.alzassistant.model.dto.knowledgeBase.KnowledgeBaseAddRequest;
 import com.yzj.alzassistant.model.dto.knowledgeBase.KnowledgeBaseQueryRequest;
 import com.yzj.alzassistant.model.dto.knowledgeBase.KnowledgeBaseUpdateRequest;
@@ -16,14 +21,15 @@ import com.yzj.alzassistant.model.entity.User;
 import com.yzj.alzassistant.model.vo.KnowledgeBaseVO;
 import com.yzj.alzassistant.service.KnowledgeBaseService;
 import com.yzj.alzassistant.util.DocumentParser;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
-import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -38,12 +44,14 @@ import java.util.stream.Collectors;
 @Service
 public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, KnowledgeBase> implements KnowledgeBaseService {
 
-    // 文档存储根目录（相对于项目根目录）
-    private static final String DOCUMENT_ROOT_DIR = System.getProperty("user.dir") + File.separator + "src" + File.separator + "main" + File.separator + "resources" + File.separator + "document";
+    @Resource
+    private CosManager cosManager;
+
+    @Resource
+    private CosClientConfig cosClientConfig;
 
     @Override
     public Long addKnowledgeBaseByFile(MultipartFile file, String category, User loginUser) {
-        // 1. 校验文件
         if (file == null || file.isEmpty()) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "文件不能为空");
         }
@@ -53,26 +61,33 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "文件名不能为空");
         }
 
-        // 2. 检查文件格式
         if (!DocumentParser.isSupportedFormat(originalFilename)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "不支持的文件格式，仅支持 doc、docx、md、txt、pdf 格式");
         }
 
-        // 3. 保存文件到document目录
-        String filePath = saveFileToDocument(file, originalFilename);
-
-        // 4. 获取文件类型
         String fileType = getFileExtension(originalFilename);
+        String uuid = RandomUtil.randomString(16);
+        String suffix = FileUtil.getSuffix(originalFilename);
+        String uploadFilename = String.format("%s_%s.%s", DateUtil.formatDate(new Date()), uuid, suffix);
+        String uploadPath = String.format("/knowledge/%s", uploadFilename);
 
-        // 5. 先创建知识库记录，状态设为parsing（解析中）
+        File tempFile = null;
+        try {
+            tempFile = File.createTempFile("knowledge_", "." + suffix);
+            file.transferTo(tempFile);
+
+            cosManager.putObject(uploadPath, tempFile);
+            String fileUrl = cosClientConfig.getHost() + uploadPath;
+
         KnowledgeBase knowledgeBase = new KnowledgeBase();
         knowledgeBase.setTitle(getFileNameWithoutExtension(originalFilename));
-        knowledgeBase.setContent(""); // 初始为空，解析完成后更新
+            knowledgeBase.setContent("");
         knowledgeBase.setCategory(category);
         knowledgeBase.setFileType(fileType);
-        knowledgeBase.setFilePath(filePath);
+            knowledgeBase.setFilePath(uploadPath);
+            knowledgeBase.setFileUrl(fileUrl);
         knowledgeBase.setSource("文件上传");
-        knowledgeBase.setStatus("parsing"); // 解析中
+            knowledgeBase.setStatus("parsing");
         knowledgeBase.setUserId(loginUser.getId());
         knowledgeBase.setCreateTime(LocalDateTime.now());
         knowledgeBase.setEditTime(LocalDateTime.now());
@@ -84,31 +99,34 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
         }
 
         Long knowledgeBaseId = knowledgeBase.getId();
-
-        // 6. 异步解析文档内容
+            File finalTempFile = tempFile;
         CompletableFuture.runAsync(() -> {
             try {
-                String content = DocumentParser.parseDocument(filePath);
-                // 更新知识库记录
+                    String content = DocumentParser.parseDocument(finalTempFile.getAbsolutePath());
                 KnowledgeBase updateKB = new KnowledgeBase();
                 updateKB.setId(knowledgeBaseId);
                 updateKB.setContent(content);
-                updateKB.setStatus("active"); // 解析完成，设为激活
+                    updateKB.setStatus("active");
                 updateKB.setUpdateTime(LocalDateTime.now());
                 this.updateById(updateKB);
                 log.info("文档解析完成: {}", knowledgeBaseId);
             } catch (Exception e) {
-                log.error("解析文档失败: {}", filePath, e);
-                // 更新状态为失败
+                    log.error("解析文档失败: {}", uploadPath, e);
                 KnowledgeBase updateKB = new KnowledgeBase();
                 updateKB.setId(knowledgeBaseId);
-                updateKB.setStatus("failed"); // 解析失败
+                    updateKB.setStatus("failed");
                 updateKB.setUpdateTime(LocalDateTime.now());
                 this.updateById(updateKB);
+                } finally {
+                    deleteTempFile(finalTempFile);
             }
         });
 
         return knowledgeBaseId;
+        } catch (Exception e) {
+            log.error("上传文件到对象存储失败", e);
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "上传失败");
+        }
     }
 
     @Override
@@ -190,7 +208,15 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "知识库文档不存在");
         }
 
-        return this.removeById(id);
+        boolean result = this.removeById(id);
+        if (result && StrUtil.isNotBlank(knowledgeBase.getFilePath())) {
+            try {
+                cosManager.deleteObject(knowledgeBase.getFilePath());
+            } catch (Exception e) {
+                log.error("删除COS文件失败: {}", knowledgeBase.getFilePath(), e);
+            }
+        }
+        return result;
     }
 
     @Override
@@ -264,41 +290,13 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
         return queryWrapper;
     }
 
-    /**
-     * 保存文件到document目录
-     */
-    private String saveFileToDocument(MultipartFile file, String originalFilename) {
-        try {
-            // 确保目录存在
-            File dir = new File(DOCUMENT_ROOT_DIR);
-            if (!dir.exists()) {
-                boolean created = dir.mkdirs();
-                if (!created) {
-                    throw new BusinessException(ErrorCode.SYSTEM_ERROR, "创建目录失败: " + DOCUMENT_ROOT_DIR);
+    private void deleteTempFile(File file) {
+        if (file == null) {
+            return;
                 }
-            }
-
-            // 生成唯一文件名（使用时间戳）
-            String fileName = System.currentTimeMillis() + "_" + originalFilename;
-            File targetFile = new File(dir, fileName);
-            String filePath = targetFile.getAbsolutePath();
-
-            // 保存文件
-            file.transferTo(targetFile);
-
-            // 验证文件是否保存成功
-            if (!targetFile.exists()) {
-                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "文件保存失败，文件不存在: " + filePath);
-            }
-            if (targetFile.length() == 0) {
-                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "文件保存失败，文件大小为0: " + filePath);
-            }
-
-            log.info("文件保存成功: {}", filePath);
-            return filePath;
-        } catch (IOException e) {
-            log.error("保存文件失败: {}", originalFilename, e);
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "保存文件失败: " + e.getMessage());
+        boolean deleteResult = file.delete();
+        if (!deleteResult) {
+            log.error("临时文件删除失败: {}", file.getAbsolutePath());
         }
     }
 

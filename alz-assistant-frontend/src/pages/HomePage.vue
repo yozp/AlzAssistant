@@ -63,7 +63,7 @@
       </div>
 
       <!-- 右侧主要内容区域 -->
-      <div class="main-content-area">
+      <div class="main-content-area" ref="messagesContainer">
         <!-- 侧边栏开关按钮 (当侧边栏关闭时显示) -->
         <a-button
           v-if="!isSidebarOpen"
@@ -77,7 +77,7 @@
         <!-- 聊天容器 -->
         <div class="chat-container">
           <!-- 消息列表 (可滚动) -->
-          <div class="messages-scroll-area" ref="messagesContainer">
+          <div class="messages-scroll-area">
             <div class="messages-content">
               <div v-if="loadingHistory" class="loading-history-wrapper">
                 <a-spin :spinning="true" size="large" />
@@ -92,14 +92,14 @@
                 <div v-if="message.type === 'user'" class="user-message">
                   <div class="message-content">{{ message.content }}</div>
                   <div class="message-avatar">
-                    <a-avatar :src="loginUserStore.loginUser.userAvatar">
+                    <a-avatar :size="40" :src="loginUserStore.loginUser.userAvatar">
                       {{ loginUserStore.loginUser.userName?.[0] || 'U' }}
                     </a-avatar>
                   </div>
                 </div>
                 <div v-else class="ai-message">
                   <div class="message-avatar">
-                    <a-avatar style="background-color: #1890ff">AI</a-avatar>
+                    <a-avatar :size="40" style="background-color: #1890ff">AI</a-avatar>
                   </div>
                   <div class="message-content">
                     <MarkdownRenderer v-if="message.content" :content="message.content" />
@@ -670,17 +670,10 @@ const handleError = (error: unknown, aiMessageIndex: number) => {
 const scrollToBottom = () => {
   // 使用 nextTick 确保 DOM 更新后再滚动
   nextTick(() => {
-    // 尝试滚动消息容器
+    // 滚动 main-content-area
     if (messagesContainer.value) {
       messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
     }
-    // 同时滚动整个页面到底部，确保输入框可见
-    setTimeout(() => {
-      window.scrollTo({
-        top: document.documentElement.scrollHeight,
-        behavior: 'smooth',
-      })
-    }, 100)
   })
 }
 
@@ -837,19 +830,21 @@ onMounted(() => {
 /* 右侧主内容样式 */
 .main-content-area {
   flex: 1;
-  display: flex;
-  flex-direction: column;
+  display: block;
   position: relative;
-  min-width: 0; /* 防止子元素溢出 */
+  min-width: 0;
   background: #fff;
+  overflow-y: auto;
+  height: 100%;
 }
 
 .sidebar-trigger {
-  position: absolute;
+  position: sticky;
   top: 16px;
-  left: 16px;
+  margin-left: 16px;
   z-index: 10;
   color: #666;
+  float: left; /* 确保不占据整行 */
 }
 
 .sidebar-trigger:hover {
@@ -858,21 +853,18 @@ onMounted(() => {
 
 /* 聊天容器 */
 .chat-container {
-  flex: 1;
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 800px;
+  max-width: 900px;
   margin: 0 auto;
-  height: 100%;
+  min-height: 100%;
 }
 
 /* 消息列表区域 */
 .messages-scroll-area {
   flex: 1;
-  overflow-y: auto;
   padding: 20px 20px 0 20px;
-  scroll-behavior: smooth;
 }
 
 .messages-content {
@@ -882,9 +874,12 @@ onMounted(() => {
 /* 输入区域固定 */
 .input-area-fixed {
   flex-shrink: 0;
-  padding: 20px;
+  padding: 20px 72px;
   background: #fff;
   border-top: 1px solid #f0f0f0;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
 }
 
 .input-wrapper {
@@ -955,7 +950,7 @@ onMounted(() => {
 }
 
 .message-content {
-  max-width: 85%;
+  max-width: 100%;
   padding: 12px 16px;
   border-radius: 12px;
   line-height: 1.6;
@@ -965,15 +960,26 @@ onMounted(() => {
 .user-message .message-content {
   background: #1890ff;
   color: white;
+  margin-left: 52px;
 }
 
 .ai-message .message-content {
   background: #f5f5f5;
   color: #333;
+  margin-right: 52px;
 }
 
 .message-avatar {
   flex-shrink: 0;
+}
+
+.message-avatar :deep(.ant-avatar) {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
+
+.message-avatar :deep(.ant-avatar img) {
+  object-fit: cover;
 }
 
 .loading-indicator {
@@ -1060,7 +1066,21 @@ onMounted(() => {
   }
   
   .message-content {
-    max-width: 90%;
+    max-width: 100%;
+  }
+
+  .input-area-fixed {
+    padding: 16px;
+  }
+
+  .user-message .message-content {
+    margin-left: 0;
+    max-width: 85%;
+  }
+
+  .ai-message .message-content {
+    margin-right: 0;
+    max-width: 85%;
   }
 }
 </style>

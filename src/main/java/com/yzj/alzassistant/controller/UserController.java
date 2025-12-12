@@ -25,7 +25,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.beans.factory.annotation.Autowired;
 import com.yzj.alzassistant.model.entity.User;
 import com.yzj.alzassistant.service.UserService;
+import com.yzj.alzassistant.manager.upload.FilePictureUpload;
+import com.yzj.alzassistant.manager.upload.UrlPictureUpload;
+import com.yzj.alzassistant.model.dto.file.UploadAvatarResult;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
 /**
@@ -40,6 +45,12 @@ public class UserController {
 
     @Autowired
     private UserService userService;
+
+    @Resource
+    private FilePictureUpload filePictureUpload;
+
+    @Resource
+    private UrlPictureUpload urlPictureUpload;
 
     /**
      * 用户注册
@@ -195,6 +206,26 @@ public class UserController {
         boolean result = userService.updateById(user);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         return ResultUtils.success(true);
+    }
+
+    /**
+     * 上传头像（文件上传）
+     */
+    @PostMapping("/upload/avatar")
+    public BaseResponse<UploadAvatarResult> uploadAvatar(@RequestParam("file") MultipartFile file) {
+        ThrowUtils.throwIf(file == null || file.isEmpty(), ErrorCode.PARAMS_ERROR, "文件不能为空");
+        UploadAvatarResult result = filePictureUpload.uploadPicture(file, "avatar");
+        return ResultUtils.success(result);
+    }
+
+    /**
+     * 上传头像（URL上传）
+     */
+    @PostMapping("/upload/avatar/url")
+    public BaseResponse<UploadAvatarResult> uploadAvatarByUrl(@RequestParam("fileUrl") String fileUrl) {
+        ThrowUtils.throwIf(fileUrl == null || fileUrl.trim().isEmpty(), ErrorCode.PARAMS_ERROR, "文件地址不能为空");
+        UploadAvatarResult result = urlPictureUpload.uploadPicture(fileUrl, "avatar");
+        return ResultUtils.success(result);
     }
 
     //-----------------------------------------------------------------------------------------------------------

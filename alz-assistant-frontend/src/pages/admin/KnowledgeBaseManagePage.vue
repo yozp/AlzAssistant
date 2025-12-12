@@ -84,6 +84,12 @@
         <template v-else-if="column.dataIndex === 'fileType'">
           <a-tag>{{ record.fileType || '-' }}</a-tag>
         </template>
+        <template v-else-if="column.dataIndex === 'fileUrl'">
+          <a v-if="record.fileUrl" :href="record.fileUrl" target="_blank" style="color: #1890ff">
+            下载
+          </a>
+          <span v-else>-</span>
+        </template>
         <template v-else-if="column.dataIndex === 'userId'">
           {{ record.userId || '-' }}
         </template>
@@ -222,6 +228,11 @@ const columns = [
   {
     title: '文件类型',
     dataIndex: 'fileType',
+    width: 100,
+  },
+  {
+    title: '文件',
+    dataIndex: 'fileUrl',
     width: 100,
   },
   {
