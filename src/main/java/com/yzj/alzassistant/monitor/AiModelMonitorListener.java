@@ -35,6 +35,8 @@ public class AiModelMonitorListener implements ChatModelListener {
     @Override
     public void onRequest(ChatModelRequestContext requestContext) {
         requestContext.attributes().put(REQUEST_START_TIME_KEY, Instant.now());
+        // 关闭思考模式
+        requestContext.attributes().put("enable_thinking", false);
         MonitorContext context = MonitorContextHolder.getContext();
         if (context == null) {
             context = MonitorContext.builder()

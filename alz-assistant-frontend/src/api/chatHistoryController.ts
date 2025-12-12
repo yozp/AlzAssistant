@@ -17,7 +17,7 @@ export async function listAllChatHistoryByPageForAdmin(
   })
 }
 
-/** 获取应用的聊天历史记录 GET /chatHistory/app/${param0} */
+/** 此处后端没有提供注释 GET /chatHistory/app/${param0} */
 export async function listAppChatHistory(
   // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
   params: API.listAppChatHistoryParams,
@@ -28,8 +28,8 @@ export async function listAppChatHistory(
     method: 'GET',
     params: {
       // pageSize has a default value: 10
-      pageSize: queryParams.pageSize?.toString() || '10',
-      ...(queryParams.lastCreateTime ? { lastCreateTime: queryParams.lastCreateTime } : {}),
+      pageSize: '10',
+      ...queryParams,
     },
     ...(options || {}),
   })
@@ -74,7 +74,7 @@ export async function page1(
   })
 }
 
-/** 删除聊天历史记录 DELETE /chatHistory/remove/${param0} */
+/** 此处后端没有提供注释 DELETE /chatHistory/remove/${param0} */
 export async function remove1(
   // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
   params: API.remove1Params,
@@ -86,15 +86,6 @@ export async function remove1(
     params: { ...queryParams },
     ...(options || {}),
   })
-}
-
-/** 删除聊天历史记录（别名，更清晰的命名） DELETE /chatHistory/remove/${param0} */
-export async function deleteChatHistory(
-  // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
-  params: API.remove1Params,
-  options?: { [key: string]: any }
-) {
-  return remove1(params, options)
 }
 
 /** 此处后端没有提供注释 POST /chatHistory/save */

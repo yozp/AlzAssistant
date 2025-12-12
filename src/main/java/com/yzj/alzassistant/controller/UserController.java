@@ -172,6 +172,31 @@ public class UserController {
         return ResultUtils.success(userVOPage);
     }
 
+    /**
+     * 获取当前用户详细信息
+     */
+    @GetMapping("/get/my")
+    public BaseResponse<UserVO> getMyInfo(HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        return ResultUtils.success(userService.getUserVO(loginUser));
+    }
+
+    /**
+     * 更新个人信息
+     */
+    @PostMapping("/update/my")
+    public BaseResponse<Boolean> updateMyInfo(@RequestBody UserUpdateMyRequest userUpdateMyRequest, 
+                                               HttpServletRequest request) {
+        ThrowUtils.throwIf(userUpdateMyRequest == null, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        User user = new User();
+        user.setId(loginUser.getId());
+        BeanUtil.copyProperties(userUpdateMyRequest, user);
+        boolean result = userService.updateById(user);
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        return ResultUtils.success(true);
+    }
+
     //-----------------------------------------------------------------------------------------------------------
 
     /**

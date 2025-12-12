@@ -5,8 +5,10 @@
 import * as userController from './userController'
 import * as chatHistoryController from './chatHistoryController'
 import * as appController from './appController'
+import * as knowledgeBaseController from './knowledgeBaseController'
 export default {
   userController,
   chatHistoryController,
   appController,
+  knowledgeBaseController,
 }

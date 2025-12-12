@@ -4,13 +4,13 @@ declare namespace API {
     appName?: string
     cover?: string
     initPrompt?: string
+    chatGenType?: string
     priority?: number
     userId?: number
     createTime?: string
     editTime?: string
     updateTime?: string
     isDelete?: number
-    chatGenType?: string
   }
 
   type AppAddRequest = {
@@ -68,6 +68,18 @@ declare namespace API {
     message?: string
   }
 
+  type BaseResponseKnowledgeBaseVO = {
+    code?: number
+    data?: KnowledgeBaseVO
+    message?: string
+  }
+
+  type BaseResponseListLong = {
+    code?: number
+    data?: number[]
+    message?: string
+  }
+
   type BaseResponseLoginUserVO = {
     code?: number
     data?: LoginUserVO
@@ -89,6 +101,12 @@ declare namespace API {
   type BaseResponsePageChatHistory = {
     code?: number
     data?: PageChatHistory
+    message?: string
+  }
+
+  type BaseResponsePageKnowledgeBaseVO = {
+    code?: number
+    data?: PageKnowledgeBaseVO
     message?: string
   }
 
@@ -163,12 +181,63 @@ declare namespace API {
     id: number
   }
 
+  type getKnowledgeBaseByIdParams = {
+    id: number
+  }
+
   type getUserByIdParams = {
     id: number
   }
 
   type getUserVOByIdParams = {
     id: number
+  }
+
+  type KnowledgeBaseAddRequest = {
+    title?: string
+    content?: string
+    source?: string
+    category?: string
+    fileType?: string
+    filePath?: string
+    status?: string
+  }
+
+  type KnowledgeBaseQueryRequest = {
+    pageNum?: number
+    pageSize?: number
+    sortField?: string
+    sortOrder?: string
+    title?: string
+    category?: string
+    status?: string
+    fileType?: string
+  }
+
+  type KnowledgeBaseUpdateRequest = {
+    id?: number
+    title?: string
+    content?: string
+    source?: string
+    category?: string
+    fileType?: string
+    filePath?: string
+    status?: string
+  }
+
+  type KnowledgeBaseVO = {
+    id?: number
+    title?: string
+    content?: string
+    source?: string
+    category?: string
+    fileType?: string
+    filePath?: string
+    status?: string
+    userId?: number
+    createTime?: string
+    editTime?: string
+    updateTime?: string
   }
 
   type listAppChatHistoryParams = {
@@ -223,6 +292,15 @@ declare namespace API {
     optimizeCountQuery?: boolean
   }
 
+  type PageKnowledgeBaseVO = {
+    records?: KnowledgeBaseVO[]
+    pageNumber?: number
+    pageSize?: number
+    totalPage?: number
+    totalRow?: number
+    optimizeCountQuery?: boolean
+  }
+
   type pageParams = {
     page: PageUser
   }
@@ -258,6 +336,14 @@ declare namespace API {
   }
 
   type ServerSentEventString = true
+
+  type uploadDocumentParams = {
+    category?: string
+  }
+
+  type uploadMultipleDocumentsParams = {
+    category?: string
+  }
 
   type User = {
     id?: number
@@ -302,6 +388,12 @@ declare namespace API {
     userAccount?: string
     userPassword?: string
     checkPassword?: string
+  }
+
+  type UserUpdateMyRequest = {
+    userName?: string
+    userAvatar?: string
+    userProfile?: string
   }
 
   type UserUpdateRequest = {

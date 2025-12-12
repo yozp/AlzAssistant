@@ -5,8 +5,8 @@
       <a-col :flex="'180px'">
         <RouterLink to="/">
           <div class="header-left">
-            <img class="logo" src="@/assets/logo.svg" alt="Logo" />
-            <h1 class="site-title">阿尔茨海默症智能问答</h1>
+            <img class="logo" src="@/assets/logo_compressed.png" alt="Logo" />
+            <h1 class="site-title">AlzAssistant</h1>
           </div>
         </RouterLink>
       </a-col>
@@ -23,7 +23,7 @@
       <a-col>
         <div class="user-login-status">
           <div v-if="loginUserStore.loginUser.id">
-            <a-dropdown>
+            <a-dropdown :get-popup-container="(triggerNode: HTMLElement) => triggerNode.parentElement">
               <a-space>
                 <a-avatar :src="loginUserStore.loginUser.userAvatar">
                   {{ loginUserStore.loginUser.userName?.[0] || 'U' }}
@@ -32,6 +32,10 @@
               </a-space>
               <template #overlay>
                 <a-menu>
+                  <a-menu-item @click="goToProfile">
+                    <UserOutlined />
+                    个人信息
+                  </a-menu-item>
                   <a-menu-item @click="doLogout">
                     <LogoutOutlined />
                     退出登录
@@ -55,7 +59,7 @@ import { useRouter } from 'vue-router'
 import { type MenuProps, message } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser.ts'
 import { userLogout } from '@/api/userController.ts'
-import { LogoutOutlined, HomeOutlined, UserOutlined } from '@ant-design/icons-vue'
+import { LogoutOutlined, HomeOutlined, UserOutlined, BookOutlined } from '@ant-design/icons-vue'
 
 const loginUserStore = useLoginUserStore()
 const router = useRouter()
@@ -79,6 +83,12 @@ const originItems = [
     icon: () => h(UserOutlined),
     label: '用户管理',
     title: '用户管理',
+  },
+  {
+    key: '/admin/knowledgeBase',
+    icon: () => h(BookOutlined),
+    label: '知识库管理',
+    title: '知识库管理',
   },
 ]
 
@@ -107,6 +117,11 @@ const handleMenuClick: MenuProps['onClick'] = (e) => {
   if (key.startsWith('/')) {
     router.push(key)
   }
+}
+
+// 跳转个人信息
+const goToProfile = () => {
+  router.push('/user/profile')
 }
 
 // 退出登录

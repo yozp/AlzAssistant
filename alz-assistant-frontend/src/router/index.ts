@@ -2,7 +2,9 @@ import { createRouter, createWebHistory } from 'vue-router'
 import HomePage from '@/pages/HomePage.vue'
 import UserLoginPage from '@/pages/user/UserLoginPage.vue'
 import UserRegisterPage from '@/pages/user/UserRegisterPage.vue'
+import UserProfilePage from '@/pages/user/UserProfilePage.vue'
 import UserManagePage from '@/pages/admin/UserManagePage.vue'
+import KnowledgeBaseManagePage from '@/pages/admin/KnowledgeBaseManagePage.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -23,9 +25,19 @@ const router = createRouter({
       component: UserRegisterPage,
     },
     {
+      path: '/user/profile',
+      name: '个人信息',
+      component: UserProfilePage,
+    },
+    {
       path: '/admin/userManage',
       name: '用户管理',
       component: UserManagePage,
+    },
+    {
+      path: '/admin/knowledgeBase',
+      name: '知识库管理',
+      component: KnowledgeBaseManagePage,
     },
   ],
 })

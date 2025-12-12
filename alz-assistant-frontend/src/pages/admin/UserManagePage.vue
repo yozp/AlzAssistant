@@ -14,6 +14,7 @@
           placeholder="选择角色"
           style="width: 120px"
           allow-clear
+          :get-popup-container="(triggerNode: HTMLElement) => triggerNode.parentElement"
         >
           <a-select-option value="">全部</a-select-option>
           <a-select-option value="admin">管理员</a-select-option>
@@ -93,7 +94,11 @@
           />
         </a-form-item>
         <a-form-item label="用户角色" name="userRole">
-          <a-select v-model:value="formState.userRole" placeholder="请选择用户角色">
+          <a-select 
+            v-model:value="formState.userRole" 
+            placeholder="请选择用户角色"
+            :get-popup-container="(triggerNode: HTMLElement) => triggerNode.parentElement"
+          >
             <a-select-option value="admin">管理员</a-select-option>
             <a-select-option value="user">普通用户</a-select-option>
           </a-select>

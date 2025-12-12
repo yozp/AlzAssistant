@@ -49,6 +49,14 @@ export async function getLoginUser(options?: { [key: string]: any }) {
   })
 }
 
+/** 此处后端没有提供注释 GET /user/get/my */
+export async function getMyInfo(options?: { [key: string]: any }) {
+  return request<API.BaseResponseUserVO>('/user/get/my', {
+    method: 'GET',
+    ...(options || {}),
+  })
+}
+
 /** 此处后端没有提供注释 GET /user/get/vo */
 export async function getUserVoById(
   // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
@@ -194,6 +202,21 @@ export async function update(body: API.User, options?: { [key: string]: any }) {
 /** 此处后端没有提供注释 POST /user/update */
 export async function updateUser(body: API.UserUpdateRequest, options?: { [key: string]: any }) {
   return request<API.BaseResponseBoolean>('/user/update', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    data: body,
+    ...(options || {}),
+  })
+}
+
+/** 此处后端没有提供注释 POST /user/update/my */
+export async function updateMyInfo(
+  body: API.UserUpdateMyRequest,
+  options?: { [key: string]: any }
+) {
+  return request<API.BaseResponseBoolean>('/user/update/my', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

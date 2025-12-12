@@ -26,4 +26,14 @@ body {
 html {
   overflow-x: hidden;
 }
+
+/* 确保下拉菜单正常显示 */
+.ant-select-dropdown,
+.ant-dropdown {
+  z-index: 1050 !important;
+}
+
+.ant-select-dropdown-menu {
+  z-index: 1050 !important;
+}
 </style>
