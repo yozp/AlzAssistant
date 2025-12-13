@@ -439,7 +439,7 @@ const selectApp = async (appId: number | undefined) => {
           })
 
         await nextTick()
-        scrollToBottom()
+        scrollToBottom(true) // 加载历史记录后瞬间滚动到底部
       }
     } else {
       message.error(res.data.message || '加载对话历史失败')
@@ -491,7 +491,7 @@ const sendMessage = async () => {
   })
 
   await nextTick()
-  scrollToBottom()
+  scrollToBottom(false) // 发送消息时可以使用平滑滚动
 
   // 如果没有选择应用，先创建新应用（使用第一条消息作为 initPrompt）
   if (!currentAppId.value) {
@@ -594,12 +594,24 @@ const generateChat = async (userMessage: string, aiMessageIndex: number) => {
 
         // 拼接内容
         if (content !== undefined && content !== null) {
+          // 检查是否在底部（在内容更新前检查）
+          const container = messagesContainer.value
+          const threshold = 50 // 阈值
+          const isAtBottom = container 
+            ? container.scrollHeight - container.scrollTop - container.clientHeight <= threshold
+            : true
+
           fullContent += content
           // 安全地更新消息内容
           if (messages.value[aiMessageIndex]) {
             messages.value[aiMessageIndex].content = fullContent
             messages.value[aiMessageIndex].loading = false
-            scrollToBottom()
+            
+            // 只有当用户原本在底部时才自动滚动
+            // 流式输出时使用 auto 滚动，避免 smooth 带来的卡顿
+            if (isAtBottom) {
+              scrollToBottom(true)
+            }
           }
         }
       } catch (error) {
@@ -636,6 +648,12 @@ const generateChat = async (userMessage: string, aiMessageIndex: number) => {
         // 连接中，可能是重连，暂时不处理
         return
       } else {
+        // 显示错误提示，建议联系管理员
+        Modal.error({
+          title: 'AI服务异常',
+          content: '当前AI模型可能配置有误或服务异常，请联系管理员检查大模型配置。',
+          okText: '知道了',
+        })
         handleError(new Error('SSE连接错误'), aiMessageIndex)
       }
     }
@@ -651,28 +669,35 @@ const handleError = (error: unknown, aiMessageIndex: number) => {
   
   // 安全地更新错误消息
   if (messages.value[aiMessageIndex]) {
-    messages.value[aiMessageIndex].content = '抱歉，生成过程中出现了错误，请重试。'
+    messages.value[aiMessageIndex].content = 'AI回复失败: ' + JSON.stringify(error)
     messages.value[aiMessageIndex].loading = false
   } else {
     // 如果消息对象不存在，创建一个新的错误消息
     messages.value.push({
       type: 'ai',
-      content: '抱歉，生成过程中出现了错误，请重试。',
+      content: 'AI回复失败: ' + JSON.stringify(error),
       loading: false,
     })
   }
   
-  message.error('生成失败，请重试')
   isGenerating.value = false
 }
 
 // 滚动到底部
-const scrollToBottom = () => {
+// instant: 是否瞬间滚动（无动画），默认为 false
+const scrollToBottom = (instant = false) => {
   // 使用 nextTick 确保 DOM 更新后再滚动
   nextTick(() => {
     // 滚动 main-content-area
     if (messagesContainer.value) {
-      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
+      if (instant) {
+        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
+      } else {
+        messagesContainer.value.scrollTo({
+          top: messagesContainer.value.scrollHeight,
+          behavior: 'smooth'
+        })
+      }
     }
   })
 }
@@ -691,7 +716,7 @@ const handleAppClick = async (appId: number | undefined) => {
   
   // 滚动到顶部，确保能看到最新的对话
   await nextTick()
-  scrollToBottom()
+  scrollToBottom(true)
 }
 
 // 删除应用

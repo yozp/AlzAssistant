@@ -15,6 +15,8 @@ import com.yzj.alzassistant.mapper.AiModelMapper;
 import com.yzj.alzassistant.model.entity.User;
 import com.yzj.alzassistant.model.vo.AiModelVO;
 import com.yzj.alzassistant.service.AiModelService;
+import com.yzj.alzassistant.service.AiModelSwitchService;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -30,6 +32,9 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 public class AiModelServiceImpl extends ServiceImpl<AiModelMapper, AiModel>  implements AiModelService{
+
+    @Resource
+    private AiModelSwitchService aiModelSwitchService;
 
     @Override
     public Long addAiModel(AiModelAddRequest addRequest, User loginUser) {
@@ -87,11 +92,37 @@ public class AiModelServiceImpl extends ServiceImpl<AiModelMapper, AiModel>  imp
             }
         }
 
-        BeanUtil.copyProperties(updateRequest, aiModel, "id", "userId", "createTime");
+        // 记录原始状态
+        String originalStatus = aiModel.getStatus();
+        String originalApiKey = aiModel.getApiKey();
+        
+        // 如果apiKey为空，保持原值不变
+        if (StrUtil.isBlank(updateRequest.getApiKey())) {
+            BeanUtil.copyProperties(updateRequest, aiModel, "id", "userId", "createTime", "apiKey");
+        } else {
+            BeanUtil.copyProperties(updateRequest, aiModel, "id", "userId", "createTime");
+        }
+        
         aiModel.setEditTime(LocalDateTime.now());
         aiModel.setUpdateTime(LocalDateTime.now());
 
-        return this.updateById(aiModel);
+        boolean result = this.updateById(aiModel);
+        
+        // 如果更新成功且模型是活跃状态，需要验证并重启服务
+        if (result && "active".equals(originalStatus)) {
+            try {
+                // 验证模型是否可用
+                aiModelSwitchService.validateAiModel(aiModel);
+                // 验证成功后切换模型
+                aiModelSwitchService.switchToModel(aiModel);
+                log.info("活跃模型更新成功并重启服务：{}", aiModel.getModelName());
+            } catch (Exception e) {
+                log.error("活跃模型更新后验证失败", e);
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "模型验证失败：" + e.getMessage());
+            }
+        }
+
+        return result;
     }
 
     @Override
@@ -123,11 +154,47 @@ public class AiModelServiceImpl extends ServiceImpl<AiModelMapper, AiModel>  imp
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "API密钥不能为空，无法启用");
         }
 
+        // 先验证模型是否可用
+        try {
+            log.info("验证模型是否可用：{}", aiModel.getModelName());
+            aiModelSwitchService.validateAiModel(aiModel);
+            log.info("模型验证成功：{}", aiModel.getModelName());
+        } catch (Exception e) {
+            log.error("模型验证失败：{}", aiModel.getModelName(), e);
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "模型验证失败：" + e.getMessage());
+        }
+
+        // 验证成功后，停用所有其他模型
+        QueryWrapper queryWrapper = QueryWrapper.create()
+                .eq("status", "active")
+                .ne("id", id);
+        List<AiModel> activeModels = this.list(queryWrapper);
+        for (AiModel model : activeModels) {
+            model.setStatus("inactive");
+            model.setEditTime(LocalDateTime.now());
+            model.setUpdateTime(LocalDateTime.now());
+            this.updateById(model);
+        }
+
+        // 启用当前模型
         aiModel.setStatus("active");
         aiModel.setEditTime(LocalDateTime.now());
         aiModel.setUpdateTime(LocalDateTime.now());
 
-        return this.updateById(aiModel);
+        boolean result = this.updateById(aiModel);
+        
+        // 更新成功后，切换AI模型
+        if (result) {
+            try {
+                aiModelSwitchService.switchToModel(aiModel);
+                log.info("AI模型启用并切换成功：{}", aiModel.getModelName());
+            } catch (Exception e) {
+                log.error("AI模型切换失败", e);
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI模型切换失败：" + e.getMessage());
+            }
+        }
+
+        return result;
     }
 
     @Override

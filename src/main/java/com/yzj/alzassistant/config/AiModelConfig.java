@@ -17,6 +17,7 @@ import java.util.List;
  * 配置模型的 API 密钥、模型名称、最大令牌数、监听器（用于监控模型调用）等参数
  */
 @Configuration
+@Deprecated
 public class AiModelConfig {
 
     @Resource

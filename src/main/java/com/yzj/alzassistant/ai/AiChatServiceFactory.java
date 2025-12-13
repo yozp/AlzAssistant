@@ -5,6 +5,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.yzj.alzassistant.ai.tools.TimeInfoTool;
 import com.yzj.alzassistant.ai.tools.WebScrapingTool;
 import com.yzj.alzassistant.ai.tools.WebSearchTool;
+import com.yzj.alzassistant.service.AiModelSwitchService;
 import com.yzj.alzassistant.service.ChatHistoryService;
 import dev.langchain4j.community.store.memory.chat.redis.RedisChatMemoryStore;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
@@ -30,7 +31,7 @@ public class AiChatServiceFactory {
     private ChatModel chatModel;
 
     @Resource
-    private StreamingChatModel streamingChatModel;
+    private AiModelSwitchService aiModelSwitchService;
 
     @Resource
     private RedisChatMemoryStore redisChatMemoryStore;
@@ -86,10 +87,28 @@ public class AiChatServiceFactory {
             .build();
 
     /**
+     * 清除所有缓存（用于模型切换时重启服务）
+     */
+    public void clearCache() {
+        log.info("清除AI服务缓存，重新初始化所有服务实例");
+        serviceCache.invalidateAll();
+    }
+
+    /**
      * 创建 AI 聊天服务实例
      * AI 对话 => 从数据库中加载对话历史到 Redis => Redis 为 AI 提供对话记忆
      */
     private AiChatService createAiChatService(Long appId) {
+        // 获取当前活跃的StreamingChatModel
+        StreamingChatModel streamingChatModel = aiModelSwitchService.getCurrentStreamingChatModel();
+        
+        if (streamingChatModel == null) {
+            log.warn("未找到活跃的AI模型，使用默认配置");
+            // 如果没有活跃模型，尝试初始化默认模型
+            aiModelSwitchService.initializeDefaultModel();
+            streamingChatModel = aiModelSwitchService.getCurrentStreamingChatModel();
+        }
+
         // 根据 appId 构建独立的对话记忆
         MessageWindowChatMemory chatMemory = MessageWindowChatMemory
                 .builder()
@@ -98,6 +117,7 @@ public class AiChatServiceFactory {
                 .maxMessages(20)
                 .build();
         chatHistoryService.loadChatHistoryToMemory(appId, chatMemory, 20);
+        
         return AiServices.builder(AiChatService.class)
                 .chatModel(chatModel)
                 .streamingChatModel(streamingChatModel)
