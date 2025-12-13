@@ -59,7 +59,7 @@ import { useRouter } from 'vue-router'
 import { type MenuProps, message } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser.ts'
 import { userLogout } from '@/api/userController.ts'
-import { LogoutOutlined, HomeOutlined, UserOutlined, BookOutlined } from '@ant-design/icons-vue'
+import { LogoutOutlined, HomeOutlined, UserOutlined, BookOutlined, RobotOutlined } from '@ant-design/icons-vue'
 
 const loginUserStore = useLoginUserStore()
 const router = useRouter()
@@ -89,6 +89,12 @@ const originItems = [
     icon: () => h(BookOutlined),
     label: '知识库管理',
     title: '知识库管理',
+  },
+  {
+    key: '/admin/aiModel',
+    icon: () => h(RobotOutlined),
+    label: '大模型管理',
+    title: '大模型管理',
   },
 ]
 

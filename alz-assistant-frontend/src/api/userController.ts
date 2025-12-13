@@ -225,3 +225,30 @@ export async function updateMyInfo(
     ...(options || {}),
   })
 }
+
+/** 此处后端没有提供注释 POST /user/upload/avatar */
+export async function uploadAvatar(body: {}, options?: { [key: string]: any }) {
+  return request<API.BaseResponseUploadAvatarResult>('/user/upload/avatar', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    data: body,
+    ...(options || {}),
+  })
+}
+
+/** 此处后端没有提供注释 POST /user/upload/avatar/url */
+export async function uploadAvatarByUrl(
+  // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
+  params: API.uploadAvatarByUrlParams,
+  options?: { [key: string]: any }
+) {
+  return request<API.BaseResponseUploadAvatarResult>('/user/upload/avatar/url', {
+    method: 'POST',
+    params: {
+      ...params,
+    },
+    ...(options || {}),
+  })
+}

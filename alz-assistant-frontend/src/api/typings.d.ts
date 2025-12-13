@@ -1,4 +1,60 @@
 declare namespace API {
+  type AiModelAddRequest = {
+    modelName?: string
+    modelKey?: string
+    apiKey?: string
+    baseUrl?: string
+    modelType?: string
+    priority?: number
+    maxTokens?: number
+    temperature?: number
+    topP?: number
+    description?: string
+  }
+
+  type AiModelQueryRequest = {
+    pageNum?: number
+    pageSize?: number
+    sortField?: string
+    sortOrder?: string
+    modelName?: string
+    modelType?: string
+    status?: string
+  }
+
+  type AiModelUpdateRequest = {
+    id?: number
+    modelName?: string
+    modelKey?: string
+    apiKey?: string
+    baseUrl?: string
+    modelType?: string
+    status?: string
+    priority?: number
+    maxTokens?: number
+    temperature?: number
+    topP?: number
+    description?: string
+  }
+
+  type AiModelVO = {
+    id?: number
+    modelName?: string
+    modelKey?: string
+    baseUrl?: string
+    modelType?: string
+    status?: string
+    priority?: number
+    maxTokens?: number
+    temperature?: number
+    topP?: number
+    description?: string
+    userId?: number
+    createTime?: string
+    editTime?: string
+    updateTime?: string
+  }
+
   type App = {
     id?: number
     appName?: string
@@ -56,6 +112,12 @@ declare namespace API {
     user?: UserVO
   }
 
+  type BaseResponseAiModelVO = {
+    code?: number
+    data?: AiModelVO
+    message?: string
+  }
+
   type BaseResponseAppVO = {
     code?: number
     data?: AppVO
@@ -92,6 +154,12 @@ declare namespace API {
     message?: string
   }
 
+  type BaseResponsePageAiModelVO = {
+    code?: number
+    data?: PageAiModelVO
+    message?: string
+  }
+
   type BaseResponsePageAppVO = {
     code?: number
     data?: PageAppVO
@@ -113,6 +181,12 @@ declare namespace API {
   type BaseResponsePageUserVO = {
     code?: number
     data?: PageUserVO
+    message?: string
+  }
+
+  type BaseResponseUploadAvatarResult = {
+    code?: number
+    data?: UploadAvatarResult
     message?: string
   }
 
@@ -156,9 +230,21 @@ declare namespace API {
     id?: number
   }
 
+  type disableAiModelParams = {
+    id: number
+  }
+
   type doChatWithSSEParams = {
     appId: number
     message: string
+  }
+
+  type enableAiModelParams = {
+    id: number
+  }
+
+  type getAiModelByIdParams = {
+    id: number
   }
 
   type getAppByIdParams = {
@@ -268,6 +354,15 @@ declare namespace API {
     page: PageApp
   }
 
+  type PageAiModelVO = {
+    records?: AiModelVO[]
+    pageNumber?: number
+    pageSize?: number
+    totalPage?: number
+    totalRow?: number
+    optimizeCountQuery?: boolean
+  }
+
   type PageApp = {
     records?: App[]
     pageNumber?: number
@@ -339,6 +434,20 @@ declare namespace API {
   }
 
   type ServerSentEventString = true
+
+  type uploadAvatarByUrlParams = {
+    fileUrl: string
+  }
+
+  type UploadAvatarResult = {
+    url?: string
+    picName?: string
+    picSize?: number
+    picWidth?: number
+    picHeight?: number
+    picScale?: number
+    picFormat?: string
+  }
 
   type uploadDocumentParams = {
     category?: string

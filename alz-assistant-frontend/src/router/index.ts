@@ -5,6 +5,7 @@ import UserRegisterPage from '@/pages/user/UserRegisterPage.vue'
 import UserProfilePage from '@/pages/user/UserProfilePage.vue'
 import UserManagePage from '@/pages/admin/UserManagePage.vue'
 import KnowledgeBaseManagePage from '@/pages/admin/KnowledgeBaseManagePage.vue'
+import AiModelManagePage from '@/pages/admin/AiModelManagePage.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -38,6 +39,11 @@ const router = createRouter({
       path: '/admin/knowledgeBase',
       name: '知识库管理',
       component: KnowledgeBaseManagePage,
+    },
+    {
+      path: '/admin/aiModel',
+      name: '大模型管理',
+      component: AiModelManagePage,
     },
   ],
 })

@@ -141,3 +141,30 @@ create table if not exists symptom_record
     INDEX idx_assessmentId (assessmentId),
     INDEX idx_symptomName (symptomName)
 ) comment '症状记录' collate = utf8mb4_unicode_ci;
+
+-- 大模型管理表
+create table if not exists ai_model
+(
+    id          bigint auto_increment comment 'id' primary key,
+    modelName   varchar(256)                       not null comment '模型名称',
+    modelKey    varchar(128)                       not null comment '模型唯一标识（如gpt-4、claude-3等）',
+    apiKey      varchar(512)                       null comment 'API密钥',
+    baseUrl     varchar(512)                       null comment 'API基础URL',
+    modelType   varchar(64)                        null comment '模型类型（openai/claude/custom等）',
+    status      varchar(32) default 'inactive'     not null comment '状态：active/inactive',
+    priority    int         default 0              not null comment '优先级',
+    maxTokens   int         default 2000           null comment '最大token数',
+    temperature decimal(3, 2) default 0.70         null comment '温度参数（0-2）',
+    topP        decimal(3, 2) default 1.00         null comment 'top_p参数（0-1）',
+    description varchar(1024)                      null comment '模型描述',
+    userId      bigint                             null comment '创建用户id（管理员）',
+    createTime  datetime    default CURRENT_TIMESTAMP not null comment '创建时间',
+    editTime    datetime    default CURRENT_TIMESTAMP not null comment '编辑时间',
+    updateTime  datetime    default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
+    isDelete    tinyint     default 0              not null comment '是否删除',
+    UNIQUE KEY uk_modelKey (modelKey),
+    INDEX idx_modelName (modelName),
+    INDEX idx_status (status),
+    INDEX idx_priority (priority),
+    INDEX idx_modelType (modelType)
+) comment '大模型管理' collate = utf8mb4_unicode_ci;

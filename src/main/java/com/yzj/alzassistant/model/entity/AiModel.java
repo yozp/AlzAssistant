@@ -5,6 +5,7 @@ import com.mybatisflex.annotation.Id;
 import com.mybatisflex.annotation.KeyType;
 import com.mybatisflex.annotation.Table;
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import java.io.Serial;
@@ -16,7 +17,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * 应用 实体类。
+ * 大模型管理 实体类。
  *
  * @author <a href="https://github.com/yozp">yunikon</a>
  */
@@ -24,8 +25,8 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table("app")
-public class App implements Serializable {
+@Table("ai_model")
+public class AiModel implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
@@ -37,27 +38,39 @@ public class App implements Serializable {
     private Long id;
 
     /**
-     * 应用名称/会话标题
+     * 模型名称
      */
-    @Column("appName")
-    private String appName;
+    @Column("modelName")
+    private String modelName;
 
     /**
-     * 应用封面
+     * 模型唯一标识（如gpt-4、claude-3等）
      */
-    private String cover;
+    @Column("modelKey")
+    private String modelKey;
 
     /**
-     * 应用初始化的 prompt
+     * API密钥
      */
-    @Column("initPrompt")
-    private String initPrompt;
+    @Column("apiKey")
+    private String apiKey;
 
-     /**
-     * 应用类型
+    /**
+     * API基础URL
      */
-    @Column("chatGenType")
-    private String chatGenType;
+    @Column("baseUrl")
+    private String baseUrl;
+
+    /**
+     * 模型类型（openai/claude/custom等）
+     */
+    @Column("modelType")
+    private String modelType;
+
+    /**
+     * 状态：active/inactive
+     */
+    private String status;
 
     /**
      * 优先级
@@ -65,7 +78,29 @@ public class App implements Serializable {
     private Integer priority;
 
     /**
-     * 创建用户id
+     * 最大token数
+     */
+    @Column("maxTokens")
+    private Integer maxTokens;
+
+    /**
+     * 温度参数（0-2）
+     */
+    private BigDecimal temperature;
+
+    /**
+     * top_p参数（0-1）
+     */
+    @Column("topP")
+    private BigDecimal topP;
+
+    /**
+     * 模型描述
+     */
+    private String description;
+
+    /**
+     * 创建用户id（管理员）
      */
     @Column("userId")
     private Long userId;
