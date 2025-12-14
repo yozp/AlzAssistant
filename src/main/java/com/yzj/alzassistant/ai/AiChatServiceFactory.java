@@ -57,6 +57,10 @@ public class AiChatServiceFactory {
 
     /**
      * 默认提供一个 Bean
+     * 意义：
+     * 1. 提供一个默认的 AiChatService 实例
+     * 2. 可以被其他类调用动态创建（实现独立的AiChatGeneratorService对象）
+     * 3. 可以被 aiChatGeneratorService 方法自动创建默认实例（appId 为 0）
      */
     @Bean
     public AiChatService aiChatService() {

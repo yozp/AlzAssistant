@@ -31,9 +31,10 @@
               v-for="app in appList"
               :key="app.id"
               class="chat-item"
-              :class="{ active: currentAppId === app.id }"
+              :class="{ active: String(currentAppId) === String(app.id) }"
+              @click="handleAppClick(String(app.id))"
             >
-              <div class="chat-item-content" @click="handleAppClick(app.id)">
+              <div class="chat-item-content">
                 <span class="chat-title">{{ app.appName || '新对话' }}</span>
                 <span class="chat-time">{{ formatTime(app.createTime) }}</span>
               </div>
@@ -42,8 +43,8 @@
                 size="small"
                 danger
                 class="delete-btn"
-                @click.stop="handleDeleteApp(app.id, app.appName)"
-                :loading="deletingAppId === app.id"
+                @click.stop="handleDeleteApp(String(app.id), app.appName)"
+                :loading="deletingAppId === String(app.id)"
               >
                 <template #icon><DeleteOutlined /></template>
               </a-button>
@@ -75,20 +76,20 @@
         </a-button>
 
         <!-- 聊天容器 -->
-        <div class="chat-container">
-          <!-- 消息列表 (可滚动) -->
-          <div class="messages-scroll-area">
-            <div class="messages-content">
-              <div v-if="loadingHistory" class="loading-history-wrapper">
-                <a-spin :spinning="true" size="large" />
-                <span class="loading-text">加载对话历史中...</span>
-              </div>
-              <div v-else-if="messages.length === 0 && !isGenerating" class="welcome-section">
-                <div class="welcome-icon">🤖</div>
-                <h2 class="welcome-title">今天有什么可以帮到你?</h2>
-              </div>
+          <div class="chat-container" :class="{ 'chat-centered': !currentAppId && messages.length === 0 }">
+            <!-- 消息列表 (可滚动) -->
+            <div class="messages-scroll-area">
+              <div class="messages-content">
+                <div v-if="loadingHistory" class="loading-history-wrapper">
+                  <a-spin :spinning="true" size="large" />
+                  <span class="loading-text">加载对话历史中...</span>
+                </div>
+                <!-- 欢迎/问候区域 -->
+                <div v-else-if="messages.length === 0 && !isGenerating" class="welcome-section">
+                  <h2 class="greeting-title">{{ greetingText }}</h2>
+                </div>
 
-              <div v-for="(message, index) in messages" :key="`message-${index}-${message.createTime || index}`" class="message-item">
+                <div v-for="(message, index) in messages" :key="`message-${index}-${message.createTime || index}`" class="message-item">
                 <div v-if="message.type === 'user'" class="user-message">
                   <div class="message-content">{{ message.content }}</div>
                   <div class="message-avatar">
@@ -147,7 +148,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, nextTick, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser'
@@ -169,6 +170,20 @@ import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
 
+// 问候语
+const greetingText = computed(() => {
+  const hour = new Date().getHours()
+  let timePeriod = ''
+  if (hour >= 0 && hour < 5) timePeriod = '凌晨'
+  else if (hour >= 5 && hour < 11) timePeriod = '上午'
+  else if (hour >= 11 && hour < 13) timePeriod = '中午'
+  else if (hour >= 13 && hour < 18) timePeriod = '下午'
+  else timePeriod = '晚上'
+  
+  const name = loginUserStore.loginUser.userName || loginUserStore.loginUser.userAccount || '你好'
+  return `${name}，${timePeriod}好，今天也祝你身体健康，生活愉快`
+})
+
 // 侧边栏状态
 const isSidebarOpen = ref(false)
 const toggleSidebar = () => {
@@ -183,7 +198,9 @@ const toggleSidebar = () => {
 const appList = ref<API.AppVO[]>([])
 const loadingApps = ref(false)
 const loadingMore = ref(false) // 加载更多状态
-const currentAppId = ref<number>()
+// 注意：后端 id 可能是 Long（雪花ID），在前端用 number 会有精度问题
+// 这里统一用 string 存储/传递，避免 “最近创建的对话恢复后 appId 变形 -> 应用不存在”
+const currentAppId = ref<string>()
 // 分页信息
 const pagination = ref({
   pageNum: 1,
@@ -195,6 +212,8 @@ const pagination = ref({
 const tempChatId = ref<string>('temp-' + Date.now())
 // 对话列表容器引用
 const chatListRef = ref<HTMLElement>()
+// 是否已经进行过首次状态恢复
+const hasRestoredState = ref(false)
 
 // 消息列表
 interface Message {
@@ -216,7 +235,7 @@ const creatingApp = ref(false)
 const loadingHistory = ref(false)
 
 // 删除应用状态
-const deletingAppId = ref<number | undefined>()
+const deletingAppId = ref<string | undefined>()
 
 // 格式化时间
 const formatTime = (time?: string) => {
@@ -284,12 +303,26 @@ const loadAppList = async (reset = false) => {
       pagination.value.hasMore =
         appList.value.length < total && records.length === pagination.value.pageSize
 
-      // 如果是首次加载且有应用列表，默认选择第一个
-      if (reset && appList.value.length > 0 && !currentAppId.value) {
-        // 确保 id 存在
-        const firstAppId = appList.value[0]?.id
-        if (firstAppId) {
-          selectApp(firstAppId)
+      // 如果是首次加载（重置）且还没有恢复过状态，则尝试恢复上次的状态
+      if (reset && appList.value.length > 0 && !hasRestoredState.value) {
+        hasRestoredState.value = true // 标记已经恢复过状态
+        const lastAppId = localStorage.getItem('lastActiveChatId')
+        
+        // 1. 如果上次是"新对话"状态，则清空当前选中，保持新对话界面
+        if (lastAppId === 'new-chat') {
+          currentAppId.value = undefined
+          messages.value = []
+        }
+        // 2. 如果上次有选中的对话ID，直接恢复（用 string，避免 Long 精度丢失）
+        else if (lastAppId && /^\d+$/.test(lastAppId)) {
+          selectApp(lastAppId)
+        }
+        // 3. 否则默认选择第一个
+        else {
+          const firstAppId = appList.value[0]?.id
+          if (firstAppId) {
+            selectApp(String(firstAppId))
+          }
         }
       }
     }
@@ -357,7 +390,7 @@ const handleChatListScroll = (event: Event) => {
   }
 }
 
-// 创建新应用
+// 创建新应用（进入新对话状态，不立即创建）
 const handleCreateNewApp = async () => {
   if (!loginUserStore.loginUser.id) {
     message.warning('请先登录')
@@ -365,48 +398,35 @@ const handleCreateNewApp = async () => {
     return
   }
 
-  creatingApp.value = true
-  try {
-    // 使用默认提示词创建新应用
-    const res = await addApp({
-      initPrompt: '新对话', // 使用默认提示词
-    })
-
-    if (res.data.code === 0 && res.data.data) {
-      message.success('创建成功')
-      // 重新加载应用列表（重置）
-      await loadAppList(true)
-      // 选择新创建的应用
-      selectApp(res.data.data)
-      // 保持侧边栏打开
-      if (!isSidebarOpen.value) {
-        isSidebarOpen.value = true
-      }
-    } else {
-      message.error('创建失败：' + res.data.message)
-    }
-  } catch (error) {
-    console.error('创建应用失败：', error)
-    message.error('创建失败，请重试')
-  } finally {
-    creatingApp.value = false
+  // 重置为新对话状态
+  currentAppId.value = undefined
+  messages.value = []
+  // 强制持久化“新对话”状态（避免 currentAppId 已经是 undefined 时 watch 不触发）
+  localStorage.setItem('lastActiveChatId', 'new-chat')
+  
+  // 移动端自动关闭侧边栏
+  if (window.innerWidth < 768) {
+    isSidebarOpen.value = false
   }
 }
 
 // 选择应用
-const selectApp = async (appId: number | undefined) => {
+const selectApp = async (appId: string | number | undefined) => {
   if (!appId) {
     message.warning('应用ID无效')
     return
   }
+  const appIdStr = String(appId)
 
   // 如果已经选择了该应用，不重复加载
-  if (currentAppId.value === appId && messages.value.length > 0) {
+  if (currentAppId.value === appIdStr && messages.value.length > 0) {
     return
   }
 
   // 设置当前应用ID
-  currentAppId.value = appId
+  currentAppId.value = appIdStr
+  // 立即持久化，确保返回主页能恢复（不依赖 watch 时机）
+  localStorage.setItem('lastActiveChatId', appIdStr)
   // 清空当前消息列表
   messages.value = []
   loadingHistory.value = true
@@ -414,7 +434,8 @@ const selectApp = async (appId: number | undefined) => {
   // 加载该应用的对话历史
   try {
     const res = await listAppChatHistory({
-      appId: appId,
+      // API 类型里是 number，但后端是 Long，传 string 也能被解析
+      appId: appIdStr as any,
       pageSize: 50, // 一次加载50条历史记录
     })
 
@@ -703,8 +724,10 @@ const scrollToBottom = (instant = false) => {
 }
 
 // 处理应用点击事件
-const handleAppClick = async (appId: number | undefined) => {
+const handleAppClick = async (appId: string | number | undefined) => {
   if (!appId) return
+  // 立即持久化当前选中的对话ID
+  localStorage.setItem('lastActiveChatId', String(appId))
   
   // 选择应用并加载历史对话
   await selectApp(appId)
@@ -720,7 +743,7 @@ const handleAppClick = async (appId: number | undefined) => {
 }
 
 // 删除应用
-const handleDeleteApp = async (appId: number | undefined, appName?: string) => {
+const handleDeleteApp = async (appId: string | number | undefined, appName?: string) => {
   if (!appId) return
 
   // 确认删除
@@ -737,19 +760,19 @@ const handleDeleteApp = async (appId: number | undefined, appName?: string) => {
 }
 
 // 执行删除应用
-const performDeleteApp = async (appId: number) => {
+const performDeleteApp = async (appId: string | number) => {
 
-  deletingAppId.value = appId
+  deletingAppId.value = String(appId)
   try {
     const res = await deleteApp({
-      id: appId,
+      id: appId as any,
     })
 
     if (res.data.code === 0 && res.data.data) {
       message.success('删除成功')
       
       // 如果删除的是当前选中的应用，清空消息
-      if (currentAppId.value === appId) {
+      if (currentAppId.value === String(appId)) {
         currentAppId.value = undefined
         messages.value = []
       }
@@ -770,6 +793,17 @@ const performDeleteApp = async (appId: number) => {
 // 处理抽屉打开事件 (不需要了，保留函数签名避免报错，或者直接删除引用)
 // const handleDrawerOpen = () => { ... }
 // 实际上上面已经删除了 @after-open="handleDrawerOpen" 绑定
+
+// 监听当前会话ID变化，持久化状态到本地存储
+watch(currentAppId, (newVal) => {
+  if (newVal === undefined) {
+    // 新对话状态
+    localStorage.setItem('lastActiveChatId', 'new-chat')
+  } else {
+    // 具体的对话ID
+    localStorage.setItem('lastActiveChatId', String(newVal))
+  }
+})
 
 // 页面加载时获取数据
 onMounted(() => {
@@ -884,6 +918,35 @@ onMounted(() => {
   max-width: 900px;
   margin: 0 auto;
   min-height: 100%;
+  transition: all 0.3s ease;
+}
+
+/* 新对话居中状态 */
+.chat-container.chat-centered {
+  justify-content: center;
+  align-items: center;
+}
+
+.chat-container.chat-centered .messages-scroll-area {
+  flex: 0 0 auto;
+  width: 100%;
+  padding-top: 0;
+  display: flex;
+  justify-content: center;
+}
+
+.chat-container.chat-centered .input-area-fixed {
+  position: static;
+  width: 100%;
+  max-width: 800px;
+  background: transparent;
+  border-top: none;
+  padding: 8px 20px;
+}
+
+.chat-container.chat-centered .welcome-section {
+  min-height: auto;
+  padding: 0 0 16px 0;
 }
 
 /* 消息列表区域 */
@@ -899,7 +962,7 @@ onMounted(() => {
 /* 输入区域固定 */
 .input-area-fixed {
   flex-shrink: 0;
-  padding: 20px 72px;
+  padding: 8px 72px 12px 72px;
   background: #fff;
   border-top: 1px solid #f0f0f0;
   position: sticky;
@@ -943,6 +1006,15 @@ onMounted(() => {
   justify-content: center;
   min-height: 300px;
   padding: 40px 0;
+  text-align: center;
+}
+
+.greeting-title {
+  font-size: 24px;
+  color: #333;
+  margin: 0;
+  font-weight: 500;
+  line-height: 1.5;
 }
 
 .welcome-icon {
@@ -1095,7 +1167,11 @@ onMounted(() => {
   }
 
   .input-area-fixed {
-    padding: 16px;
+    padding: 12px 16px;
+  }
+
+  .chat-container.chat-centered .input-area-fixed {
+    padding: 20px 16px;
   }
 
   .user-message .message-content {
