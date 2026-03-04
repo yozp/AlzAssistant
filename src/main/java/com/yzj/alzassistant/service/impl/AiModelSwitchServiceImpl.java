@@ -183,18 +183,21 @@ public class AiModelSwitchServiceImpl implements AiModelSwitchService {
 
     @Override
     public boolean validateAiModel(AiModel aiModel) throws Exception {
-        log.info("开始验证AI模型：{}", aiModel.getModelName());
+        log.info("开始验证AI模型：{} (Base URL: {}, Model Key: {})", 
+                aiModel.getModelName(), 
+                aiModel.getBaseUrl(), 
+                aiModel.getModelKey());
         
         try {
             // 创建用于测试的ChatModel（非流式，方便验证）
             ChatModel testModel = createTestChatModel(aiModel);
             
-            // 发送简单的测试消息，设置5秒超时
+            // 发送简单的测试消息，设置30秒超时（增加超时时间以应对网络延迟）
             CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> 
                 testModel.chat("你好")
             );
             
-            String response = future.get(5, TimeUnit.SECONDS);
+            String response = future.get(30, TimeUnit.SECONDS);
             
             if (StrUtil.isNotBlank(response)) {
                 log.info("AI模型验证成功：{}", aiModel.getModelName());
@@ -202,9 +205,24 @@ public class AiModelSwitchServiceImpl implements AiModelSwitchService {
             } else {
                 throw new Exception("模型响应为空");
             }
+        } catch (java.util.concurrent.TimeoutException e) {
+            String errorMsg = String.format(
+                "模型验证超时（30秒）。可能原因：1) 网络连接问题（无法访问 %s），2) 需要配置代理，3) API Key无效或模型不可用。请检查网络连接和API配置。",
+                aiModel.getBaseUrl()
+            );
+            log.error("AI模型验证失败（超时）：{} - {}", aiModel.getModelName(), errorMsg);
+            throw new Exception(errorMsg);
         } catch (Exception e) {
-            log.error("AI模型验证失败：{}", aiModel.getModelName(), e);
-            throw new Exception("模型验证失败：" + e.getMessage());
+            String errorMsg = e.getMessage();
+            // 检查是否是连接超时错误
+            if (errorMsg != null && (errorMsg.contains("Connect timed out") || errorMsg.contains("Connection refused"))) {
+                errorMsg = String.format(
+                    "无法连接到 %s。可能原因：1) 网络被墙或无法访问OpenAI服务器，2) 需要配置HTTP代理，3) Base URL配置错误。建议：如果在中国大陆，请使用代理或OpenAI代理服务。",
+                    aiModel.getBaseUrl()
+                );
+            }
+            log.error("AI模型验证失败：{} - {}", aiModel.getModelName(), errorMsg, e);
+            throw new Exception("模型验证失败：" + errorMsg);
         }
     }
 
@@ -223,7 +241,7 @@ public class AiModelSwitchServiceImpl implements AiModelSwitchService {
                 return OllamaChatModel.builder()
                         .baseUrl(aiModel.getBaseUrl())
                         .modelName(aiModel.getModelKey())
-                        .timeout(Duration.ofSeconds(5))
+                        .timeout(Duration.ofSeconds(30))
                         .build();
 
             case "openai":
@@ -236,7 +254,7 @@ public class AiModelSwitchServiceImpl implements AiModelSwitchService {
                         .apiKey(aiModel.getApiKey())
                         .baseUrl(aiModel.getBaseUrl())
                         .modelName(aiModel.getModelKey())
-                        .timeout(Duration.ofSeconds(5))
+                        .timeout(Duration.ofSeconds(30))
                         .build();
         }
     }

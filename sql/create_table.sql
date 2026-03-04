@@ -1,4 +1,4 @@
-# 数据库初始化
+-- 数据库初始化
 
 -- 创建库
 create database if not exists alz_assistant;
@@ -83,9 +83,6 @@ create table if not exists knowledge_base
     INDEX idx_status (status),
     INDEX idx_createTime (createTime)
 ) comment '知识库文档' collate = utf8mb4_unicode_ci;
-
--- 为现有knowledge_base表添加fileUrl字段（如果表已存在）
-ALTER TABLE knowledge_base ADD COLUMN fileUrl varchar(1024) null comment '文件URL（对象存储）' AFTER filePath;
 
 -- 知识库分块表（RAG向量检索）
 -- 注意：向量embedding建议存储在专门的向量数据库（如Milvus、Pinecone）中

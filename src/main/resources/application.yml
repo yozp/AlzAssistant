@@ -7,7 +7,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/alz_assistant
     username: root
-    password: root
+    password: hsp
   profiles:
     active: local #??????
   # redis
@@ -54,6 +54,13 @@ management:
   endpoint: # 端点配置
     health:
       show-details: always # 显示健康检查详情
+
+# HTTP代理配置（用于访问OpenAI等被墙的API）
+http:
+  proxy:
+    enabled: false # 是否启用代理
+    host: # 代理服务器地址，例如: 127.0.0.1 或 proxy.example.com
+    port: # 代理服务器端口，例如: 7890 或 1080
 
 
 
