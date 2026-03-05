@@ -206,6 +206,20 @@
             <version>3.0.3</version>
         </dependency>
 
+        <!-- iText7 PDF 生成 -->
+        <dependency>
+            <groupId>com.itextpdf</groupId>
+            <artifactId>itext7-core</artifactId>
+            <version>8.0.5</version>
+            <type>pom</type>
+        </dependency>
+        <!-- iText7 中文字体支持 -->
+        <dependency>
+            <groupId>com.itextpdf</groupId>
+            <artifactId>font-asian</artifactId>
+            <version>8.0.5</version>
+        </dependency>
+
         <!-- 腾讯云对象存储 COS SDK -->
         <dependency>
             <groupId>com.qcloud</groupId>

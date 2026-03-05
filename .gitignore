@@ -34,5 +34,6 @@ build/
 
 ### CUSTOM ###
 application-local.yml
+application-prod.yml
 yu-ai-code-mother-frontend
 tmp/
