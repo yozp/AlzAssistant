@@ -17,10 +17,12 @@ import com.yzj.alzassistant.exception.ThrowUtils;
 import com.yzj.alzassistant.model.dto.app.AppAddRequest;
 import com.yzj.alzassistant.model.dto.app.AppAdminUpdateRequest;
 import com.yzj.alzassistant.model.dto.app.AppQueryRequest;
+import com.yzj.alzassistant.model.dto.app.AppSuggestionsRequest;
 import com.yzj.alzassistant.model.dto.app.AppUpdateRequest;
 import com.yzj.alzassistant.model.entity.User;
 import com.yzj.alzassistant.model.enums.ChatTypeEnum;
 import com.yzj.alzassistant.model.vo.AppVO;
+import com.yzj.alzassistant.service.FollowUpSuggestionsService;
 import com.yzj.alzassistant.service.UserService;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
@@ -53,6 +55,9 @@ public class AppController {
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private FollowUpSuggestionsService followUpSuggestionsService;
 
     /**
      * 添加/创建应用。
@@ -244,6 +249,32 @@ public class AppController {
                                 .data("")
                                 .build()
                 ));
+    }
+
+    /**
+     * 生成“猜你想问”推荐问题（不持久化，异步调用，不影响主对话）。
+     *
+     * @param request      HttpServletRequest
+     * @return 推荐问题列表（最多 3 个）
+     */
+    @PostMapping("/suggestions")
+    public BaseResponse<List<String>> getFollowUpSuggestions(@RequestBody AppSuggestionsRequest appSuggestionsRequest,
+                                                             HttpServletRequest request) {
+        ThrowUtils.throwIf(appSuggestionsRequest == null, ErrorCode.PARAMS_ERROR);
+        Long appId = appSuggestionsRequest.getAppId();
+        String userQuestion = appSuggestionsRequest.getUserQuestion();
+        String aiResponse = appSuggestionsRequest.getAiResponse();
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID无效");
+        ThrowUtils.throwIf(StrUtil.isBlank(userQuestion), ErrorCode.PARAMS_ERROR, "用户问题不能为空");
+        ThrowUtils.throwIf(StrUtil.isBlank(aiResponse), ErrorCode.PARAMS_ERROR, "AI回复不能为空");
+        User loginUser = userService.getLoginUser(request);
+        App app = appService.getById(appId);
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+        if (!app.getUserId().equals(loginUser.getId())) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限访问该应用");
+        }
+        List<String> suggestions = followUpSuggestionsService.generateSuggestions(userQuestion, aiResponse);
+        return ResultUtils.success(suggestions);
     }
 
     //-------------------------------------------------------------------------------------------------------------------------------

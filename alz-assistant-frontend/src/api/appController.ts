@@ -231,3 +231,18 @@ export async function updateApp(body: API.AppUpdateRequest, options?: { [key: st
     ...(options || {}),
   })
 }
+
+/** 此处后端没有提供注释 POST /app/suggestions */
+export async function getAppSuggestions(
+  body: API.AppSuggestionsRequest,
+  options?: { [key: string]: any }
+) {
+  return request<API.BaseResponseListString>('/app/suggestions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    data: body,
+    ...(options || {}),
+  })
+}

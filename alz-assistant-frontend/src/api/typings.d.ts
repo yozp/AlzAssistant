@@ -99,6 +99,12 @@ declare namespace API {
     appName?: string
   }
 
+  type AppSuggestionsRequest = {
+    appId?: number
+    userQuestion?: string
+    aiResponse?: string
+  }
+
   type AppVO = {
     id?: number
     appName?: string
@@ -139,6 +145,12 @@ declare namespace API {
   type BaseResponseListLong = {
     code?: number
     data?: number[]
+    message?: string
+  }
+
+  type BaseResponseListString = {
+    code?: number
+    data?: string[]
     message?: string
   }
 

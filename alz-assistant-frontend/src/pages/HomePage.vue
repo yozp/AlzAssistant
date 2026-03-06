@@ -108,6 +108,17 @@
                       <a-spin size="small" />
                       <span>AI 正在思考...</span>
                     </div>
+                    <div v-if="message.suggestions && message.suggestions.length > 0" class="suggestions-wrapper">
+                      <div
+                        v-for="(s, i) in message.suggestions"
+                        :key="`suggestion-${index}-${i}`"
+                        class="suggestion-item"
+                        @click="onSuggestionClick(s)"
+                      >
+                        <span class="suggestion-text">{{ s }}</span>
+                        <RightOutlined class="suggestion-icon" />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -164,7 +175,7 @@ import { ref, onMounted, nextTick, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser'
-import { addApp, listMyAppVoByPage, deleteApp } from '@/api/appController'
+import { addApp, listMyAppVoByPage, deleteApp, getAppSuggestions } from '@/api/appController'
 import { listAppChatHistory } from '@/api/chatHistoryController'
 import { API_BASE_URL } from '@/config/env'
 import {
@@ -177,6 +188,7 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   FileTextOutlined,
+  RightOutlined,
 } from '@ant-design/icons-vue'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 
@@ -234,12 +246,46 @@ interface Message {
   content: string
   loading?: boolean
   createTime?: string
+  suggestions?: string[]
 }
 
 const messages = ref<Message[]>([])
 const userInput = ref('')
 const isGenerating = ref(false)
 const messagesContainer = ref<HTMLElement>()
+
+const onSuggestionClick = (text: string) => {
+  if (!text?.trim()) {
+    return
+  }
+  userInput.value = text.trim()
+  sendMessage()
+}
+
+const fetchSuggestions = async (userQuestion: string, aiResponse: string, aiMessageIndex: number) => {
+  if (!currentAppId.value) {
+    return
+  }
+  if (!messages.value[aiMessageIndex] || messages.value[aiMessageIndex].type !== 'ai') {
+    return
+  }
+  try {
+    const res = await getAppSuggestions({
+      // 后端接收 Long，前端用 string 存储，这里用 any 传递即可被解析
+      appId: currentAppId.value as any,
+      userQuestion,
+      aiResponse,
+    })
+    if (res.data.code === 0 && Array.isArray(res.data.data)) {
+      // 消息可能已被清空（例如切换会话），所以再次校验索引
+      if (messages.value[aiMessageIndex] && messages.value[aiMessageIndex].type === 'ai') {
+        messages.value[aiMessageIndex].suggestions = res.data.data
+      }
+    }
+  } catch (e) {
+    console.warn('获取猜你想问失败：', e)
+  }
+}
 
 // 创建应用
 const creatingApp = ref(false)
@@ -564,7 +610,7 @@ const handleCreateNewAppForChat = async (firstMessage: string, aiMessageIndex: n
 
      if (res.data.code === 0 && res.data.data) {
        // 设置当前应用ID（不调用selectApp，避免清空消息）
-       currentAppId.value = res.data.data
+       currentAppId.value = String(res.data.data)
        // 重新加载应用列表（重置）
        loadAppList(true)
        return true
@@ -669,6 +715,11 @@ const generateChat = async (userMessage: string, aiMessageIndex: number, chatTyp
       streamCompleted = true
       isGenerating.value = false
       eventSource?.close()
+
+      // 异步获取“猜你想问”，不影响主对话流程
+      if (fullContent && messages.value[aiMessageIndex]) {
+        fetchSuggestions(userMessage, fullContent, aiMessageIndex)
+      }
       
        // 确保消息已保存，重新加载应用列表以更新对话标题（重置）
        setTimeout(() => {
@@ -1129,6 +1180,43 @@ onMounted(() => {
   padding: 40px;
   color: #666;
   gap: 10px;
+}
+
+.suggestions-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.suggestion-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
+  color: #555;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+}
+
+.suggestion-item:hover {
+  border-color: #d6e4ff;
+  background: #f0f5ff;
+  color: #1d39c4;
+}
+
+.suggestion-text {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.suggestion-icon {
+  font-size: 12px;
+  opacity: 0.7;
 }
 
 /* 对话列表样式 */
