@@ -71,14 +71,17 @@ public class AppController {
         App app = new App();
         BeanUtils.copyProperties(appAddRequest, app);
         app.setUserId(loginUser.getId());
-        // 截取 initPrompt 的前 12 个字符作为应用名称
+        // 临时标题：取 initPrompt 前 10 字，后续由异步任务用 AI 重写
         String initPrompt = appAddRequest.getInitPrompt();
-        app.setAppName(initPrompt.substring(0, Math.min(initPrompt.length(), 12)));
+        String trimmed = initPrompt.trim();
+        app.setAppName(StrUtil.isBlank(trimmed) ? "新对话" : trimmed.substring(0, Math.min(trimmed.length(), 10)));
         //设置应用类型(默认是聊天应用)
         app.setChatGenType(ChatTypeEnum.CHAT_TYPE_ENUM.getValue());
         //插入数据库
         boolean result = appService.save(app);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        // 异步生成并更新标题（不阻塞返回）
+        appService.generateAndUpdateTitleAsync(app.getId(), initPrompt);
         return ResultUtils.success(app.getId());
     }
 

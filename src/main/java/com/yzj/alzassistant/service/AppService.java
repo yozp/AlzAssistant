@@ -50,4 +50,13 @@ public interface AppService extends IService<App> {
      * @return 生成代码的流式响应
      */
     Flux<String> chatToGen(Long appId, String message, User loginUser, String chatType);
+
+    /**
+     * 异步根据用户首条问题生成并更新对话标题（不超过 10 字）。
+     * 不阻塞调用方；失败时保留原有临时标题，仅打日志。
+     *
+     * @param appId        应用 ID
+     * @param userQuestion 用户首条问题内容
+     */
+    void generateAndUpdateTitleAsync(Long appId, String userQuestion);
 }

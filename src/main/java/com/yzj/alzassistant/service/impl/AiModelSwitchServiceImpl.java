@@ -115,6 +115,19 @@ public class AiModelSwitchServiceImpl implements AiModelSwitchService {
     }
 
     @Override
+    public ChatModel getCurrentChatModel() {
+        AiModel activeModel = getCurrentActiveModel();
+        if (activeModel == null) {
+            initializeDefaultModel();
+            activeModel = getCurrentActiveModel();
+        }
+        if (activeModel == null) {
+            return null;
+        }
+        return createTitleChatModel(activeModel);
+    }
+
+    @Override
     public void restartAiServices() {
         log.info("开始重启所有AI服务...");
         try {
@@ -223,6 +236,37 @@ public class AiModelSwitchServiceImpl implements AiModelSwitchService {
             }
             log.error("AI模型验证失败：{} - {}", aiModel.getModelName(), errorMsg, e);
             throw new Exception("模型验证失败：" + errorMsg);
+        }
+    }
+
+    /**
+     * 创建用于标题生成等短任务的 ChatModel（10 秒超时，避免长时间占用线程）
+     */
+    private ChatModel createTitleChatModel(AiModel aiModel) {
+        String modelType = aiModel.getModelType();
+        if (StrUtil.isBlank(modelType)) {
+            modelType = "openai";
+        }
+        Duration timeout = Duration.ofSeconds(10);
+        switch (modelType.toLowerCase()) {
+            case "ollama":
+                return OllamaChatModel.builder()
+                        .baseUrl(aiModel.getBaseUrl())
+                        .modelName(aiModel.getModelKey())
+                        .timeout(timeout)
+                        .build();
+            case "openai":
+            case "deepseek":
+            case "claude":
+            case "gemini":
+            case "custom":
+            default:
+                return OpenAiChatModel.builder()
+                        .apiKey(aiModel.getApiKey())
+                        .baseUrl(aiModel.getBaseUrl())
+                        .modelName(aiModel.getModelKey())
+                        .timeout(timeout)
+                        .build();
         }
     }
 

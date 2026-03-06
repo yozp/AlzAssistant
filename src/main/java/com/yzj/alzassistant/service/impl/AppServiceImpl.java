@@ -20,14 +20,18 @@ import com.yzj.alzassistant.model.vo.UserVO;
 import com.yzj.alzassistant.monitor.MonitorContext;
 import com.yzj.alzassistant.monitor.MonitorContextHolder;
 import com.yzj.alzassistant.service.AppService;
+import com.yzj.alzassistant.service.AiModelSwitchService;
 import com.yzj.alzassistant.service.ChatHistoryService;
 import com.yzj.alzassistant.service.UserService;
+import dev.langchain4j.model.chat.ChatModel;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +52,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
 
     @Resource
     private AiChatFacade aiChatFacade;
+
+    @Resource
+    private AiModelSwitchService aiModelSwitchService;;
 
     @Override
     public AppVO getAppVO(App app) {
@@ -175,6 +182,46 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
                     // 流结束时清理（无论成功/失败/取消）
                     MonitorContextHolder.clearContext();
                 });
+    }
+
+    private static final int TITLE_MAX_LENGTH = 10;
+    private static final String TITLE_PROMPT_PREFIX = "将以下用户问题总结为不超过10个字的对话标题，只输出标题文字，不要引号、不要换行：\n";
+
+    @Override
+    @Async
+    public void generateAndUpdateTitleAsync(Long appId, String userQuestion) {
+        if (appId == null || StrUtil.isBlank(userQuestion)) {
+            return;
+        }
+        try {
+            ChatModel chatModel = aiModelSwitchService.getCurrentChatModel();
+            if (chatModel == null) {
+                log.debug("未配置 AI 模型，跳过对话标题生成，appId={}", appId);
+                return;
+            }
+            String prompt = TITLE_PROMPT_PREFIX + userQuestion.trim();
+            String raw = chatModel.chat(prompt);
+            if (StrUtil.isBlank(raw)) {
+                return;
+            }
+            // 清理掉引号和换行符
+            String cleaned = raw.trim().replaceAll("^[\"'\u201c\u201d]|[\"'\u201c\u201d]$", "").trim();
+            if (cleaned.length() > TITLE_MAX_LENGTH) {
+                // 截取前10个字符
+                cleaned = cleaned.substring(0, TITLE_MAX_LENGTH);
+            }
+            if (StrUtil.isBlank(cleaned)) {
+                return;
+            }
+            App update = new App();
+            update.setId(appId);
+            update.setAppName(cleaned);
+            update.setEditTime(LocalDateTime.now());
+            updateById(update);
+            log.debug("对话标题已更新，appId={}, title={}", appId, cleaned);
+        } catch (Exception e) {
+            log.warn("异步生成对话标题失败，保留临时标题，appId={}", appId, e);
+        }
     }
 
     //--------------------------------------------------------------------------------------------------------------------

@@ -1,6 +1,7 @@
 package com.yzj.alzassistant.service;
 
 import com.yzj.alzassistant.model.entity.AiModel;
+import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
 
 /**
@@ -28,6 +29,14 @@ public interface AiModelSwitchService {
      * @return StreamingChatModel实例
      */
     StreamingChatModel getCurrentStreamingChatModel();
+
+    /**
+     * 获取当前非流式 ChatModel（用于标题生成等短文本任务）。
+     * 若当前无活跃模型则返回 null。
+     *
+     * @return ChatModel 实例，未配置时为 null
+     */
+    ChatModel getCurrentChatModel();
 
     /**
      * 重启所有AI服务
