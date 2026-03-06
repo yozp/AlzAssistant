@@ -127,6 +127,18 @@
                 class="chat-input"
               />
               <div class="input-actions">
+                <a-tooltip title="生成诊断报告（智能体模式）">
+                  <a-button
+                    @click="sendAgentMessage"
+                    :loading="isGenerating"
+                    :disabled="!userInput.trim()"
+                    class="agent-btn"
+                  >
+                    <template #icon>
+                      <FileTextOutlined />
+                    </template>
+                  </a-button>
+                </a-tooltip>
                 <a-button
                   type="primary"
                   @click="sendMessage"
@@ -164,6 +176,7 @@ import {
   DeleteOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons-vue'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 
@@ -488,8 +501,13 @@ const handleEnterKey = (e: KeyboardEvent) => {
   sendMessage()
 }
 
-// 发送消息
-const sendMessage = async () => {
+// 智能体模式：生成诊断报告
+const sendAgentMessage = async () => {
+  await sendMessage('agent')
+}
+
+// 发送消息，chatType 可选：不传走普通模式，传 'agent' 走智能体
+const sendMessage = async (chatType?: string) => {
   if (!userInput.value.trim() || isGenerating.value) {
     return
   }
@@ -527,7 +545,7 @@ const sendMessage = async () => {
 
   // 开始生成
   isGenerating.value = true
-  await generateChat(messageContent, aiMessageIndex)
+  await generateChat(messageContent, aiMessageIndex, chatType)
 }
 
 // 为聊天创建新应用（使用第一条消息作为 initPrompt）
@@ -564,7 +582,7 @@ const handleCreateNewAppForChat = async (firstMessage: string, aiMessageIndex: n
 }
 
 // 生成聊天 - 使用 EventSource 处理流式响应
-const generateChat = async (userMessage: string, aiMessageIndex: number) => {
+const generateChat = async (userMessage: string, aiMessageIndex: number, chatType?: string) => {
   // 确保应用ID存在
   if (!currentAppId.value) {
     handleError(new Error('应用ID不存在'), aiMessageIndex)
@@ -587,6 +605,9 @@ const generateChat = async (userMessage: string, aiMessageIndex: number) => {
       appId: String(currentAppId.value),
       message: userMessage,
     })
+    if (chatType) {
+      params.append('chatType', chatType)
+    }
 
     const url = `${API_BASE_URL}/app/chat?${params}`
 
@@ -996,6 +1017,19 @@ onMounted(() => {
   position: absolute;
   bottom: 12px;
   right: 12px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.agent-btn {
+  border-color: #52c41a;
+  color: #52c41a;
+}
+
+.agent-btn:hover:not(:disabled) {
+  border-color: #73d13d;
+  color: #73d13d;
 }
 
 /* 消息样式复用 */

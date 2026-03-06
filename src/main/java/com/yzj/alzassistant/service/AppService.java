@@ -49,5 +49,5 @@ public interface AppService extends IService<App> {
      * @param loginUser 当前登录用户
      * @return 生成代码的流式响应
      */
-    Flux<String> chatToGen(Long appId, String message, User loginUser);
+    Flux<String> chatToGen(Long appId, String message, User loginUser, String chatType);
 }

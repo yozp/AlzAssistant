@@ -115,7 +115,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
     }
 
     @Override
-    public Flux<String> chatToGen(Long appId, String message, User loginUser) {
+    public Flux<String> chatToGen(Long appId, String message, User loginUser, String chatType) {
         // 1. 参数校验
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 不能为空");
         ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "用户消息不能为空");
@@ -126,11 +126,19 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         if (!app.getUserId().equals(loginUser.getId())) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限访问该应用");
         }
-        // 4. 获取应用的对话生成类型
-        String chatGenType = app.getChatGenType();
-        ChatTypeEnum chatTypeEnum = ChatTypeEnum.getEnumByValue(chatGenType);
-        if (chatTypeEnum == null) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "不支持的对话类型");
+        // 4. 确定对话类型：请求级参数优先，否则用应用默认
+        ChatTypeEnum chatTypeEnum;
+        if (StrUtil.isNotBlank(chatType)) {
+            chatTypeEnum = ChatTypeEnum.getEnumByValue(chatType);
+            if (chatTypeEnum == null) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "不支持的对话类型: " + chatType);
+            }
+        } else {
+            String chatGenType = app.getChatGenType();
+            chatTypeEnum = ChatTypeEnum.getEnumByValue(chatGenType);
+            if (chatTypeEnum == null) {
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "不支持的对话类型");
+            }
         }
         // 5. 通过校验后，添加用户消息到对话历史
         chatHistoryService.addChatMessage(appId, message, ChatHistoryMessageTypeEnum.USER.getValue(), loginUser.getId());
