@@ -1,7 +1,11 @@
 package com.yzj.alzassistant.core;
 
+import cn.hutool.json.JSONUtil;
 import com.yzj.alzassistant.ai.AiChatServiceFactory;
 import com.yzj.alzassistant.ai.agent.MedicalAgentService;
+import com.yzj.alzassistant.ai.model.message.AiResponseMessage;
+import com.yzj.alzassistant.ai.model.message.StreamMessage;
+import com.yzj.alzassistant.ai.model.message.StreamMessageTypeEnum;
 import com.yzj.alzassistant.exception.BusinessException;
 import com.yzj.alzassistant.exception.ErrorCode;
 import com.yzj.alzassistant.model.enums.ChatTypeEnum;
@@ -84,13 +88,13 @@ public class AiChatFacade {
     }
 
     /**
-     * 智能体模式：调用 MedicalAgentService 运行智能体并流式输出。
+     * 智能体模式：调用 MedicalAgentService 运行智能体，透传结构化 JSON 流式消息。
      */
     private Flux<String> generateAndSaveAgentStream(String userMessage, Long appId) {
-        Flux<String> result = medicalAgentService.runMedicalAgent(userMessage);
+        Flux<String> jsonFlux = medicalAgentService.runMedicalAgent(appId, userMessage);
         StringBuilder agentBuilder = new StringBuilder();
-        return result
-                .doOnNext(agentBuilder::append)
+        return jsonFlux
+                .doOnNext(chunk -> agentBuilder.append(extractAgentTextForHistory(chunk)))
                 .doOnComplete(() -> {
                     try {
                         File savedDir = ChatFileSaver.saveChatResult(ChatTypeEnum.AGENT_TYPE_ENUM.getValue(), agentBuilder.toString());
@@ -99,5 +103,23 @@ public class AiChatFacade {
                         log.error("保存 Agent 结果失败", e);
                     }
                 });
+    }
+
+    /**
+     * 从结构化 chunk 中提取适合落库的文本（仅保留 AI 正文）。
+     */
+    private String extractAgentTextForHistory(String chunk) {
+        try {
+            StreamMessage streamMessage = JSONUtil.toBean(chunk, StreamMessage.class);
+            StreamMessageTypeEnum typeEnum = StreamMessageTypeEnum.getEnumByValue(streamMessage.getType());
+            if (typeEnum == StreamMessageTypeEnum.AI_RESPONSE) {
+                AiResponseMessage aiMessage = JSONUtil.toBean(chunk, AiResponseMessage.class);
+                return aiMessage.getData() == null ? "" : aiMessage.getData();
+            }
+            return "";
+        } catch (Exception e) {
+            log.warn("解析智能体结构化消息失败，忽略该 chunk: {}", chunk, e);
+            return "";
+        }
     }
 }

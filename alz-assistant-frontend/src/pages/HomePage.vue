@@ -104,6 +104,34 @@
                   </div>
                   <div class="message-content">
                     <MarkdownRenderer v-if="message.content" :content="message.content" />
+                    <div
+                      v-if="message.toolRequests && message.toolRequests.length > 0"
+                      class="tool-stream-wrapper"
+                    >
+                      <div class="tool-stream-title">工具调用</div>
+                      <div
+                        v-for="(item, i) in message.toolRequests"
+                        :key="`tool-request-${index}-${i}`"
+                        class="tool-stream-item"
+                      >
+                        <span class="tool-stream-tag pending">已选择</span>
+                        <span>{{ item }}</span>
+                      </div>
+                    </div>
+                    <div
+                      v-if="message.toolExecuted && message.toolExecuted.length > 0"
+                      class="tool-stream-wrapper"
+                    >
+                      <div class="tool-stream-title">工具执行结果</div>
+                      <div
+                        v-for="(item, i) in message.toolExecuted"
+                        :key="`tool-executed-${index}-${i}`"
+                        class="tool-stream-item"
+                      >
+                        <span class="tool-stream-tag done">已完成</span>
+                        <span>{{ item }}</span>
+                      </div>
+                    </div>
                     <div v-if="message.loading" class="loading-indicator">
                       <a-spin size="small" />
                       <span>AI 正在思考...</span>
@@ -247,12 +275,89 @@ interface Message {
   loading?: boolean
   createTime?: string
   suggestions?: string[]
+  toolRequests?: string[]
+  toolExecuted?: string[]
+  seenToolRequestIds?: string[]
 }
 
 const messages = ref<Message[]>([])
 const userInput = ref('')
 const isGenerating = ref(false)
 const messagesContainer = ref<HTMLElement>()
+
+type StreamMessageType = 'ai_response' | 'tool_request' | 'tool_executed'
+
+interface AgentInnerMessage {
+  type: StreamMessageType
+  data?: string
+  id?: string
+  name?: string
+  arguments?: string
+  result?: string
+}
+
+const TOOL_NAME_TO_CN: Record<string, string> = {
+  searchNearbyHospitals: '地图搜索',
+  geocode: '地理编码',
+  generateMedicalReport: 'PDF 报告生成',
+  googleSearch: '网络搜索',
+  doTerminate: '结束任务',
+}
+
+const getToolNameCn = (name?: string) => {
+  if (!name) return '未知工具'
+  return TOOL_NAME_TO_CN[name] || name
+}
+
+const getToolResultSummary = (result?: string) => {
+  if (!result) return '已完成'
+  const normalized = result.replace(/\n/g, ' ').trim()
+  if (normalized.length <= 80) return normalized
+  return `${normalized.slice(0, 77)}...`
+}
+
+const parseAgentInnerMessage = (chunk: string): AgentInnerMessage | null => {
+  try {
+    const inner = JSON.parse(chunk)
+    if (!inner || typeof inner !== 'object' || !inner.type) {
+      return null
+    }
+    return inner as AgentInnerMessage
+  } catch {
+    return null
+  }
+}
+
+const appendAgentChunkToMessage = (msg: Message, inner: AgentInnerMessage): string => {
+  if (inner.type === 'ai_response') {
+    return inner.data ?? ''
+  }
+  if (inner.type === 'tool_request') {
+    const id = inner.id ?? ''
+    if (!msg.seenToolRequestIds) {
+      msg.seenToolRequestIds = []
+    }
+    if (id && msg.seenToolRequestIds.includes(id)) {
+      return ''
+    }
+    if (id) {
+      msg.seenToolRequestIds.push(id)
+    }
+    if (!msg.toolRequests) {
+      msg.toolRequests = []
+    }
+    msg.toolRequests.push(getToolNameCn(inner.name))
+    return ''
+  }
+  if (inner.type === 'tool_executed') {
+    if (!msg.toolExecuted) {
+      msg.toolExecuted = []
+    }
+    msg.toolExecuted.push(`${getToolNameCn(inner.name)}：${getToolResultSummary(inner.result)}`)
+    return ''
+  }
+  return ''
+}
 
 const onSuggestionClick = (text: string) => {
   if (!text?.trim()) {
@@ -573,6 +678,9 @@ const sendMessage = async (chatType?: string) => {
     type: 'ai',
     content: '',
     loading: true,
+    toolRequests: [],
+    toolExecuted: [],
+    seenToolRequestIds: [],
   })
 
   await nextTick()
@@ -664,6 +772,8 @@ const generateChat = async (userMessage: string, aiMessageIndex: number, chatTyp
 
     let fullContent = ''
 
+    const isAgentMode = chatType === 'agent'
+
     // 处理接收到的消息
     eventSource.onmessage = function (event) {
       if (streamCompleted) return
@@ -676,7 +786,7 @@ const generateChat = async (userMessage: string, aiMessageIndex: number, chatTyp
           return
         }
 
-        // 解析JSON包装的数据
+        // 解析 JSON 包装数据：{ d: chunk }
         const parsed = JSON.parse(event.data)
         const content = parsed.d
 
@@ -689,10 +799,24 @@ const generateChat = async (userMessage: string, aiMessageIndex: number, chatTyp
             ? container.scrollHeight - container.scrollTop - container.clientHeight <= threshold
             : true
 
-          fullContent += content
           // 安全地更新消息内容
           if (messages.value[aiMessageIndex]) {
-            messages.value[aiMessageIndex].content = fullContent
+            const aiMessage = messages.value[aiMessageIndex]
+            if (isAgentMode) {
+              // agent 模式：先按结构化消息解析，失败时降级为纯文本
+              const inner = parseAgentInnerMessage(content)
+              if (inner) {
+                const aiTextDelta = appendAgentChunkToMessage(aiMessage, inner)
+                if (aiTextDelta) {
+                  fullContent += aiTextDelta
+                }
+              } else {
+                fullContent += content
+              }
+            } else {
+              fullContent += content
+            }
+            aiMessage.content = fullContent
             messages.value[aiMessageIndex].loading = false
             
             // 只有当用户原本在底部时才自动滚动
@@ -715,6 +839,11 @@ const generateChat = async (userMessage: string, aiMessageIndex: number, chatTyp
       streamCompleted = true
       isGenerating.value = false
       eventSource?.close()
+      if (messages.value[aiMessageIndex]) {
+        messages.value[aiMessageIndex].loading = false
+        // 仅用于去重的运行时字段，结束后移除
+        delete messages.value[aiMessageIndex].seenToolRequestIds
+      }
 
       // 异步获取“猜你想问”，不影响主对话流程
       if (fullContent && messages.value[aiMessageIndex]) {
@@ -764,6 +893,7 @@ const handleError = (error: unknown, aiMessageIndex: number) => {
   if (messages.value[aiMessageIndex]) {
     messages.value[aiMessageIndex].content = 'AI回复失败: ' + JSON.stringify(error)
     messages.value[aiMessageIndex].loading = false
+    delete messages.value[aiMessageIndex].seenToolRequestIds
   } else {
     // 如果消息对象不存在，创建一个新的错误消息
     messages.value.push({
@@ -1170,6 +1300,51 @@ onMounted(() => {
   gap: 8px;
   color: #666;
   margin-top: 4px;
+}
+
+.tool-stream-wrapper {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
+}
+
+.tool-stream-title {
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 8px;
+}
+
+.tool-stream-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #555;
+  margin-bottom: 6px;
+}
+
+.tool-stream-item:last-child {
+  margin-bottom: 0;
+}
+
+.tool-stream-tag {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.tool-stream-tag.pending {
+  color: #0958d9;
+  background: #e6f4ff;
+}
+
+.tool-stream-tag.done {
+  color: #237804;
+  background: #f6ffed;
 }
 
 .loading-history-wrapper {

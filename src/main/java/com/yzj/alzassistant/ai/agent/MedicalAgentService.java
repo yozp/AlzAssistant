@@ -1,80 +1,71 @@
 package com.yzj.alzassistant.ai.agent;
 
-import com.yzj.alzassistant.ai.tools.MapSearchTool;
-import com.yzj.alzassistant.ai.tools.PDFReportTool;
-import com.yzj.alzassistant.ai.tools.TerminateTool;
-import com.yzj.alzassistant.ai.tools.WebSearchTool;
-import dev.langchain4j.model.chat.ChatModel;
+import cn.hutool.json.JSONUtil;
+import com.yzj.alzassistant.ai.MedicalAiService;
+import com.yzj.alzassistant.ai.MedicalAiServiceFactory;
+import com.yzj.alzassistant.ai.model.message.AiResponseMessage;
+import com.yzj.alzassistant.ai.model.message.ToolExecutedMessage;
+import com.yzj.alzassistant.ai.model.message.ToolRequestMessage;
+import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.service.TokenStream;
+import dev.langchain4j.service.tool.ToolExecution;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-
 /**
- * 医疗智能体服务，负责创建和运行 MedicalAgent 实例。
+ * 医疗智能体服务，基于 TokenStream 实现 token 级流式输出和工具调用过程展示。
  */
 @Service
 @Slf4j
 public class MedicalAgentService {
 
     @Resource
-    private ChatModel chatModel;
-
-    @Resource
-    private MapSearchTool mapSearchTool;
-
-    @Resource
-    private PDFReportTool pdfReportTool;
-
-    @Resource
-    private WebSearchTool webSearchTool;
-
-    @Resource
-    private TerminateTool terminateTool;
-
-    // 系统提示
-    private volatile String agentSystemPrompt;
+    private MedicalAiServiceFactory medicalAiServiceFactory;
 
     /**
-     * 加载系统提示词
+     * 运行医疗智能体（TokenStream 流式输出）
+     *
+     * @param appId       应用 ID，用于对话记忆隔离
+     * @param userMessage 用户消息
+     * @return 流式响应，每个 chunk 为 JSON 格式的统一消息
      */
-    private String loadSystemPrompt() {
-        if (agentSystemPrompt != null) {
-            return agentSystemPrompt;
-        }
-        try {
-            ClassPathResource resource = new ClassPathResource("prompt/agent_system_prompt.txt");
-            agentSystemPrompt = resource.getContentAsString(StandardCharsets.UTF_8);
-            return agentSystemPrompt;
-        } catch (IOException e) {
-            log.error("加载 Agent 系统提示词失败", e);
-            return "你是一个医疗辅助智能体，请分析用户症状、搜索附近医院并生成PDF报告。";
-        }
+    public Flux<String> runMedicalAgent(long appId, String userMessage) {
+        log.info("启动医疗智能体，appId: {}, 用户消息: {}", appId, userMessage);
+
+        TokenStream tokenStream = medicalAiServiceFactory.getMedicalAiService().runMedicalAgentStream(appId, userMessage);
+        return processTokenStream(tokenStream)
+                .doOnSubscribe(sub -> log.info("医疗智能体开始 TokenStream 流式执行"))
+                .doOnComplete(() -> log.info("医疗智能体执行完成"))
+                .doOnError(e -> log.error("医疗智能体执行出错", e));
     }
 
     /**
-     * 创建并运行医疗智能体（流式输出）
-     * 每次调用创建一个新的 Agent 实例（Agent 是有状态的，不能复用）。
+     * 将 TokenStream 转换为 Flux，输出统一消息格式的 JSON。
      */
-    public Flux<String> runMedicalAgent(String userMessage) {
-        log.info("启动医疗智能体，用户消息: {}", userMessage);
-
-        MedicalAgent agent = new MedicalAgent(
-                loadSystemPrompt(),
-                chatModel,
-                mapSearchTool,
-                pdfReportTool,
-                webSearchTool,
-                terminateTool
-        );
-
-        return agent.runStream(userMessage)
-                .doOnSubscribe(sub -> log.info("医疗智能体开始流式执行"))
-                .doOnComplete(() -> log.info("医疗智能体执行完成"))
-                .doOnError(e -> log.error("医疗智能体执行出错", e));
+    private Flux<String> processTokenStream(TokenStream tokenStream) {
+        return Flux.create(sink -> {
+            tokenStream
+                    .onPartialResponse(partial -> {
+                        AiResponseMessage msg = new AiResponseMessage(partial);
+                        sink.next(JSONUtil.toJsonStr(msg));
+                    })
+                    .onPartialToolExecutionRequest((idx, req) -> {
+                        ToolRequestMessage msg = new ToolRequestMessage(req);
+                        sink.next(JSONUtil.toJsonStr(msg));
+                    })
+                    .onCompleteToolExecutionRequest((idx, req) -> {
+                        ToolRequestMessage msg = new ToolRequestMessage(req);
+                        sink.next(JSONUtil.toJsonStr(msg));
+                    })
+                    .onToolExecuted(te -> {
+                        ToolExecutedMessage msg = new ToolExecutedMessage(te);
+                        sink.next(JSONUtil.toJsonStr(msg));
+                    })
+                    .onCompleteResponse((ChatResponse r) -> sink.complete())
+                    .onError(sink::error)
+                    .start();
+        });
     }
 }

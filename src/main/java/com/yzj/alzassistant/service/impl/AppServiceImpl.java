@@ -3,8 +3,12 @@ package com.yzj.alzassistant.service.impl;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONUtil;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
+import com.yzj.alzassistant.ai.model.message.AiResponseMessage;
+import com.yzj.alzassistant.ai.model.message.StreamMessage;
+import com.yzj.alzassistant.ai.model.message.StreamMessageTypeEnum;
 import com.yzj.alzassistant.core.AiChatFacade;
 import com.yzj.alzassistant.exception.BusinessException;
 import com.yzj.alzassistant.exception.ErrorCode;
@@ -163,7 +167,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         return contentFlux
                 .map(chunk -> {
                     // 收集AI响应内容
-                    aiResponseBuilder.append(chunk);
+                    aiResponseBuilder.append(extractPersistableChunk(chatTypeEnum, chunk));
                     return chunk;
                 })
                 .doOnComplete(() -> {
@@ -182,6 +186,28 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
                     // 流结束时清理（无论成功/失败/取消）
                     MonitorContextHolder.clearContext();
                 });
+    }
+
+    /**
+     * 提取适合持久化到 chat_history 的文本内容。
+     * agent 模式仅保留 AI 文本响应，避免将结构化 JSON 直接落库。
+     */
+    private String extractPersistableChunk(ChatTypeEnum chatTypeEnum, String chunk) {
+        if (chatTypeEnum != ChatTypeEnum.AGENT_TYPE_ENUM) {
+            return chunk;
+        }
+        try {
+            StreamMessage streamMessage = JSONUtil.toBean(chunk, StreamMessage.class);
+            StreamMessageTypeEnum typeEnum = StreamMessageTypeEnum.getEnumByValue(streamMessage.getType());
+            if (typeEnum == StreamMessageTypeEnum.AI_RESPONSE) {
+                AiResponseMessage aiResponseMessage = JSONUtil.toBean(chunk, AiResponseMessage.class);
+                return StrUtil.nullToEmpty(aiResponseMessage.getData());
+            }
+            return "";
+        } catch (Exception e) {
+            log.warn("解析 agent chunk 失败，降级为原文持久化，chunk={}", chunk, e);
+            return chunk;
+        }
     }
 
     private static final int TITLE_MAX_LENGTH = 10;
