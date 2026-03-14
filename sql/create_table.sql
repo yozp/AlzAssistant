@@ -103,22 +103,56 @@ create table if not exists knowledge_chunk
     INDEX idx_knowledgeId_chunkIndex (knowledgeId, chunkIndex)
 ) comment '知识库分块（RAG向量检索）' collate = utf8mb4_unicode_ci;
 
+-- 评估量表模板表
+create table if not exists assessment_scale
+(
+    id            bigint auto_increment comment 'id' primary key,
+    scaleName     varchar(256)                           not null comment '量表名称',
+    scaleIntro    varchar(1024)                          null comment '量表简介',
+    contentJson   json                                   not null comment '量表内容(JSON，含题目/选项/分数)',
+    ruleJson      json                                   not null comment '评分规则(JSON，按分数段映射风险等级/评估结果/建议)',
+    totalScoreMin int          default 0                 not null comment '最小总分',
+    totalScoreMax int                                    not null comment '最大总分',
+    versionNo     int          default 1                 not null comment '版本号',
+    status        tinyint      default 1                 not null comment '状态：0-禁用 1-启用',
+    userId        bigint                                not null comment '创建人(管理员)id',
+    createTime    datetime     default CURRENT_TIMESTAMP not null comment '创建时间',
+    editTime      datetime     default CURRENT_TIMESTAMP not null comment '编辑时间',
+    updateTime    datetime     default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
+    isDelete      tinyint      default 0                 not null comment '是否删除',
+    INDEX idx_scaleName (scaleName),
+    INDEX idx_userId (userId),
+    INDEX idx_status (status),
+    INDEX idx_userId_createTime (userId, createTime)
+) comment '评估量表模板' collate = utf8mb4_unicode_ci;
+
 -- 评估记录表
 create table if not exists assessment_record
 (
-    id          bigint auto_increment comment 'id' primary key,
-    userId      bigint                             not null comment '用户id',
-    appId       bigint                             null comment '关联的应用/会话id',
-    symptomDesc text                               not null comment '症状描述',
-    assessment  text                               null comment '评估结果',
-    suggestion  text                               null comment '建议',
-    riskLevel   varchar(32)                        null comment '风险等级：low/medium/high',
-    createTime  datetime default CURRENT_TIMESTAMP not null comment '创建时间',
-    updateTime  datetime default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
-    isDelete    tinyint  default 0                 not null comment '是否删除',
+    id                 bigint auto_increment comment 'id' primary key,
+    userId             bigint                                not null comment '用户id',
+    appId              bigint                                null comment '关联会话id',
+    symptomDesc        text                                  not null comment '症状描述',
+    assessorType       tinyint                               not null comment '评估人：1-AI 2-量表',
+    assessmentResult   text                                  null comment '评估结果',
+    riskLevel          tinyint                               null comment '风险等级：0-无 1-低 2-中 3-高',
+    suggestion         text                                  null comment '建议',
+    totalScore         int                                   null comment '量表总分',
+    scaleId            bigint                                null comment '量表id',
+    scaleNameSnapshot  varchar(256)                          null comment '量表名称快照',
+    scaleVersionNo     int                                   null comment '量表版本快照',
+    answerJson         json                                  null comment '作答详情(JSON)',
+    ruleSnapshotJson   json                                  null comment '命中规则快照(JSON)',
+    aiSourceType       tinyint                               null comment 'AI来源：1-agent报告',
+    reportUrl          varchar(1024)                        null comment '报告链接',
+    createTime         datetime    default CURRENT_TIMESTAMP not null comment '创建时间',
+    updateTime         datetime    default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
+    isDelete           tinyint     default 0                 not null comment '是否删除',
     INDEX idx_userId (userId),
     INDEX idx_appId (appId),
+    INDEX idx_assessorType (assessorType),
     INDEX idx_riskLevel (riskLevel),
+    INDEX idx_scaleId (scaleId),
     INDEX idx_createTime (createTime),
     INDEX idx_userId_createTime (userId, createTime)
 ) comment '评估记录' collate = utf8mb4_unicode_ci;
