@@ -6,6 +6,7 @@ import UserProfilePage from '@/pages/user/UserProfilePage.vue'
 import UserManagePage from '@/pages/admin/UserManagePage.vue'
 import KnowledgeBaseManagePage from '@/pages/admin/KnowledgeBaseManagePage.vue'
 import AiModelManagePage from '@/pages/admin/AiModelManagePage.vue'
+import AssessmentScaleManagePage from '@/pages/admin/AssessmentScaleManagePage.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -44,6 +45,11 @@ const router = createRouter({
       path: '/admin/aiModel',
       name: '大模型管理',
       component: AiModelManagePage,
+    },
+    {
+      path: '/admin/assessmentScale',
+      name: '量表管理',
+      component: AssessmentScaleManagePage,
     },
   ],
 })

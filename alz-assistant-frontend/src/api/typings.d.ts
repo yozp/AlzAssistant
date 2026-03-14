@@ -55,6 +55,81 @@ declare namespace API {
     updateTime?: string
   }
 
+  type AssessmentScaleAddRequest = {
+    scaleName?: string
+    scaleIntro?: string
+    contentJson?: string
+    ruleJson?: string
+    status?: number
+  }
+
+  type AssessmentScaleQueryRequest = {
+    pageNum?: number
+    pageSize?: number
+    sortField?: string
+    sortOrder?: string
+    scaleName?: string
+    status?: number
+    userId?: number
+  }
+
+  type AssessmentScaleRuleRange = {
+    min?: number
+    max?: number
+    riskLevel?: number
+    assessmentResult?: string
+    suggestion?: string
+  }
+
+  type AssessmentScaleRule = {
+    mode?: string
+    boundaries?: number[]
+    ranges?: AssessmentScaleRuleRange[]
+  }
+
+  type AssessmentScaleQuestionOption = {
+    optionId?: string
+    label?: string
+    score?: number
+  }
+
+  type AssessmentScaleQuestion = {
+    questionId?: string
+    title?: string
+    type?: string
+    required?: boolean
+    options?: AssessmentScaleQuestionOption[]
+  }
+
+  type AssessmentScaleContent = {
+    questions?: AssessmentScaleQuestion[]
+  }
+
+  type AssessmentScaleUpdateRequest = {
+    id?: string | number
+    scaleName?: string
+    scaleIntro?: string
+    contentJson?: string
+    ruleJson?: string
+    status?: number
+  }
+
+  type AssessmentScaleVO = {
+    id?: string | number
+    scaleName?: string
+    scaleIntro?: string
+    contentJson?: string
+    ruleJson?: string
+    totalScoreMin?: number
+    totalScoreMax?: number
+    versionNo?: number
+    status?: number
+    userId?: number
+    createTime?: string
+    editTime?: string
+    updateTime?: string
+  }
+
   type App = {
     id?: number
     appName?: string
@@ -124,6 +199,12 @@ declare namespace API {
     message?: string
   }
 
+  type BaseResponseAssessmentScaleVO = {
+    code?: number
+    data?: AssessmentScaleVO
+    message?: string
+  }
+
   type BaseResponseAppVO = {
     code?: number
     data?: AppVO
@@ -169,6 +250,12 @@ declare namespace API {
   type BaseResponsePageAiModelVO = {
     code?: number
     data?: PageAiModelVO
+    message?: string
+  }
+
+  type BaseResponsePageAssessmentScaleVO = {
+    code?: number
+    data?: PageAssessmentScaleVO
     message?: string
   }
 
@@ -246,6 +333,10 @@ declare namespace API {
     id: number
   }
 
+  type disableAssessmentScaleParams = {
+    id: string | number
+  }
+
   type doChatWithSSEParams = {
     appId: number
     message: string
@@ -255,8 +346,16 @@ declare namespace API {
     id: number
   }
 
+  type enableAssessmentScaleParams = {
+    id: string | number
+  }
+
   type getAiModelByIdParams = {
     id: number
+  }
+
+  type getAssessmentScaleByIdParams = {
+    id: string | number
   }
 
   type getAppByIdParams = {
@@ -377,6 +476,15 @@ declare namespace API {
 
   type PageApp = {
     records?: App[]
+    pageNumber?: number
+    pageSize?: number
+    totalPage?: number
+    totalRow?: number
+    optimizeCountQuery?: boolean
+  }
+
+  type PageAssessmentScaleVO = {
+    records?: AssessmentScaleVO[]
     pageNumber?: number
     pageSize?: number
     totalPage?: number

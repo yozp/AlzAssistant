@@ -59,7 +59,14 @@ import { useRouter } from 'vue-router'
 import { type MenuProps, message } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser.ts'
 import { userLogout } from '@/api/userController.ts'
-import { LogoutOutlined, HomeOutlined, UserOutlined, BookOutlined, RobotOutlined } from '@ant-design/icons-vue'
+import {
+  LogoutOutlined,
+  HomeOutlined,
+  UserOutlined,
+  BookOutlined,
+  RobotOutlined,
+  FormOutlined,
+} from '@ant-design/icons-vue'
 
 const loginUserStore = useLoginUserStore()
 const router = useRouter()
@@ -95,6 +102,12 @@ const originItems = [
     icon: () => h(RobotOutlined),
     label: '大模型管理',
     title: '大模型管理',
+  },
+  {
+    key: '/admin/assessmentScale',
+    icon: () => h(FormOutlined),
+    label: '量表管理',
+    title: '量表管理',
   },
 ]
 

@@ -1,21 +1,27 @@
 package com.yzj.alzassistant.controller;
 
 import com.mybatisflex.core.paginate.Page;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.beans.factory.annotation.Autowired;
-import com.yzj.alzassistant.model.entity.AssessmentScale;
+import com.yzj.alzassistant.annotation.AuthCheck;
+import com.yzj.alzassistant.common.BaseResponse;
+import com.yzj.alzassistant.common.DeleteRequest;
+import com.yzj.alzassistant.common.ResultUtils;
+import com.yzj.alzassistant.constant.UserConstant;
+import com.yzj.alzassistant.exception.ErrorCode;
+import com.yzj.alzassistant.exception.ThrowUtils;
+import com.yzj.alzassistant.model.dto.assessmentScale.AssessmentScaleAddRequest;
+import com.yzj.alzassistant.model.dto.assessmentScale.AssessmentScaleQueryRequest;
+import com.yzj.alzassistant.model.dto.assessmentScale.AssessmentScaleUpdateRequest;
+import com.yzj.alzassistant.model.entity.User;
+import com.yzj.alzassistant.model.vo.AssessmentScaleVO;
 import com.yzj.alzassistant.service.AssessmentScaleService;
+import com.yzj.alzassistant.service.UserService;
+import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.RestController;
-import java.util.List;
+import org.springframework.web.bind.annotation.*;
 
 /**
- *  控制层。
+ * 量表管理 控制层。
  *
  * @author <a href="https://github.com/yozp">yunikon</a>
  */
@@ -23,72 +29,92 @@ import java.util.List;
 @RequestMapping("/assessmentScale")
 public class AssessmentScaleController {
 
-    @Autowired
+    @Resource
     private AssessmentScaleService assessmentScaleService;
 
+    @Resource
+    private UserService userService;
+
     /**
-     * 保存。
-     *
-     * @param assessmentScale 
-     * @return {@code true} 保存成功，{@code false} 保存失败
+     * 添加量表
      */
-    @PostMapping("save")
-    public boolean save(@RequestBody AssessmentScale assessmentScale) {
-        return assessmentScaleService.save(assessmentScale);
+    @PostMapping("/add")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Long> addAssessmentScale(@RequestBody AssessmentScaleAddRequest addRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(addRequest == null, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        Long id = assessmentScaleService.addAssessmentScale(addRequest, loginUser);
+        return ResultUtils.success(id);
     }
 
     /**
-     * 根据主键删除。
-     *
-     * @param id 主键
-     * @return {@code true} 删除成功，{@code false} 删除失败
+     * 更新量表
      */
-    @DeleteMapping("remove/{id}")
-    public boolean remove(@PathVariable Long id) {
-        return assessmentScaleService.removeById(id);
+    @PostMapping("/update")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> updateAssessmentScale(@RequestBody AssessmentScaleUpdateRequest updateRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(updateRequest == null, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        boolean result = assessmentScaleService.updateAssessmentScale(updateRequest, loginUser);
+        return ResultUtils.success(result);
     }
 
     /**
-     * 根据主键更新。
-     *
-     * @param assessmentScale 
-     * @return {@code true} 更新成功，{@code false} 更新失败
+     * 删除量表
      */
-    @PutMapping("update")
-    public boolean update(@RequestBody AssessmentScale assessmentScale) {
-        return assessmentScaleService.updateById(assessmentScale);
+    @PostMapping("/delete")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> deleteAssessmentScale(@RequestBody DeleteRequest deleteRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(deleteRequest == null || deleteRequest.getId() == null, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        boolean result = assessmentScaleService.deleteAssessmentScale(deleteRequest.getId(), loginUser);
+        return ResultUtils.success(result);
     }
 
     /**
-     * 查询所有。
-     *
-     * @return 所有数据
+     * 启用量表
      */
-    @GetMapping("list")
-    public List<AssessmentScale> list() {
-        return assessmentScaleService.list();
+    @PostMapping("/enable/{id}")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> enableAssessmentScale(@PathVariable Long id, HttpServletRequest request) {
+        ThrowUtils.throwIf(id == null || id <= 0, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        boolean result = assessmentScaleService.enableAssessmentScale(id, loginUser);
+        return ResultUtils.success(result);
     }
 
     /**
-     * 根据主键获取。
-     *
-     * @param id 主键
-     * @return 详情
+     * 停用量表
      */
-    @GetMapping("getInfo/{id}")
-    public AssessmentScale getInfo(@PathVariable Long id) {
-        return assessmentScaleService.getById(id);
+    @PostMapping("/disable/{id}")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> disableAssessmentScale(@PathVariable Long id, HttpServletRequest request) {
+        ThrowUtils.throwIf(id == null || id <= 0, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        boolean result = assessmentScaleService.disableAssessmentScale(id, loginUser);
+        return ResultUtils.success(result);
     }
 
     /**
-     * 分页查询。
-     *
-     * @param page 分页对象
-     * @return 分页对象
+     * 分页查询量表
      */
-    @GetMapping("page")
-    public Page<AssessmentScale> page(Page<AssessmentScale> page) {
-        return assessmentScaleService.page(page);
+    @PostMapping("/list/page")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Page<AssessmentScaleVO>> listAssessmentScaleByPage(@RequestBody AssessmentScaleQueryRequest queryRequest) {
+        ThrowUtils.throwIf(queryRequest == null, ErrorCode.PARAMS_ERROR);
+        Page<AssessmentScaleVO> page = assessmentScaleService.listAssessmentScaleByPage(queryRequest);
+        return ResultUtils.success(page);
+    }
+
+    /**
+     * 根据id获取量表详情
+     */
+    @GetMapping("/get")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<AssessmentScaleVO> getAssessmentScaleById(@RequestParam Long id) {
+        ThrowUtils.throwIf(id == null || id <= 0, ErrorCode.PARAMS_ERROR);
+        AssessmentScaleVO vo = assessmentScaleService.getAssessmentScaleById(id);
+        return ResultUtils.success(vo);
     }
 
 }
