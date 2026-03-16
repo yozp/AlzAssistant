@@ -9,6 +9,8 @@ import com.mybatisflex.spring.service.impl.ServiceImpl;
 import com.yzj.alzassistant.ai.model.message.AiResponseMessage;
 import com.yzj.alzassistant.ai.model.message.StreamMessage;
 import com.yzj.alzassistant.ai.model.message.StreamMessageTypeEnum;
+import com.yzj.alzassistant.core.chat.ActiveChatSessionRegistry;
+import com.yzj.alzassistant.core.chat.ActiveChatSessionRegistry.ActiveChatSession;
 import com.yzj.alzassistant.core.AiChatFacade;
 import com.yzj.alzassistant.exception.BusinessException;
 import com.yzj.alzassistant.exception.ErrorCode;
@@ -59,6 +61,11 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
 
     @Resource
     private AiModelSwitchService aiModelSwitchService;;
+
+    @Resource
+    private ActiveChatSessionRegistry activeChatSessionRegistry;
+
+    private static final String PAUSED_SUFFIX = " [已暂停生成]";
 
     @Override
     public AppVO getAppVO(App app) {
@@ -160,22 +167,23 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
                         .appId(appId.toString())
                         .build()
         );
-        // 7. 调用 AI 生成回复（userLocation 为前端传来的用户实时位置，供智能体地图工具使用）
+        // 7. 注册当前会话（同一 userId + appId 只允许 1 个进行中会话，新请求会覆盖旧请求）
+        ActiveChatSession activeChatSession = activeChatSessionRegistry.register(loginUser.getId(), appId);
+        // 8. 调用 AI 生成回复（userLocation 为前端传来的用户实时位置，供智能体地图工具使用）
         Flux<String> contentFlux  = aiChatFacade.generateAndSaveStreamFacade(message, chatTypeEnum, appId, userLocation);
-        // 8. 收集AI响应内容并在完成后记录到对话历史
-        StringBuilder aiResponseBuilder = new StringBuilder();
         return contentFlux
+                .takeUntilOther(activeChatSession.stopSignal())
                 .map(chunk -> {
-                    // 收集AI响应内容
-                    aiResponseBuilder.append(extractPersistableChunk(chatTypeEnum, chunk));
+                    // 收集 AI 可持久化响应内容
+                    activeChatSession.appendPartial(extractPersistableChunk(chatTypeEnum, chunk));
                     return chunk;
                 })
                 .doOnComplete(() -> {
-                    // 流式响应完成后，添加AI消息到对话历史
-                    String aiResponse = aiResponseBuilder.toString();
-                    if (StrUtil.isNotBlank(aiResponse)) {
-                        chatHistoryService.addChatMessage(appId, aiResponse, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
+                    // 正常完成：记录完整 AI 消息
+                    if (activeChatSession.isStopRequested()) {
+                        return;
                     }
+                    persistAiIfAbsent(activeChatSession, appId, loginUser.getId(), false);
                 })
                 .doOnError(error -> {
                     // 如果AI回复失败，也要记录错误消息
@@ -183,9 +191,41 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
                     chatHistoryService.addChatMessage(appId, errorMessage, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
                 })
                 .doFinally(signalType -> {
+                    // 停止生成：立即记录已生成部分，并追加停止标记
+                    if (activeChatSession.isStopRequested()) {
+                        persistAiIfAbsent(activeChatSession, appId, loginUser.getId(), true);
+                    }
+                    activeChatSessionRegistry.removeIfSame(activeChatSession);
                     // 流结束时清理（无论成功/失败/取消）
                     MonitorContextHolder.clearContext();
                 });
+    }
+
+    @Override
+    public boolean stopChat(Long appId, User loginUser) {
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 不能为空");
+        ThrowUtils.throwIf(loginUser == null || loginUser.getId() == null, ErrorCode.NOT_LOGIN_ERROR);
+        App app = this.getById(appId);
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+        if (!app.getUserId().equals(loginUser.getId())) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限停止该应用对话");
+        }
+        return activeChatSessionRegistry.stop(loginUser.getId(), appId, "用户主动停止");
+    }
+
+    // 持久化 AI 响应
+    private void persistAiIfAbsent(ActiveChatSession activeChatSession, Long appId, Long userId, boolean paused) {
+        if (activeChatSession == null || !activeChatSession.markPersisted()) {
+            return;
+        }
+        String aiResponse = activeChatSession.getPartialResponse();
+        if (StrUtil.isBlank(aiResponse)) {
+            return;
+        }
+        if (paused) {
+            aiResponse = aiResponse + PAUSED_SUFFIX;
+        }
+        chatHistoryService.addChatMessage(appId, aiResponse, ChatHistoryMessageTypeEnum.AI.getValue(), userId);
     }
 
     /**

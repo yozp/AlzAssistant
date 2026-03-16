@@ -54,6 +54,15 @@ public interface AppService extends IService<App> {
     Flux<String> chatToGen(Long appId, String message, User loginUser, String chatType, String userLocation);
 
     /**
+     * 停止指定应用下当前用户的流式对话。
+     *
+     * @param appId     应用 ID
+     * @param loginUser 当前登录用户
+     * @return 是否成功触发停止
+     */
+    boolean stopChat(Long appId, User loginUser);
+
+    /**
      * 异步根据用户首条问题生成并更新对话标题（不超过 10 字）。
      * 不阻塞调用方；失败时保留原有临时标题，仅打日志。
      *

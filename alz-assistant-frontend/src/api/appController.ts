@@ -86,6 +86,22 @@ export async function doChatWithSse(
   })
 }
 
+/** 停止流式聊天 POST /app/chat/stop */
+export async function stopChat(
+  params: {
+    appId: string | number
+  },
+  options?: { [key: string]: any }
+) {
+  return request<API.BaseResponseBoolean>('/app/chat/stop', {
+    method: 'POST',
+    params: {
+      ...params,
+    },
+    ...(options || {}),
+  })
+}
+
 /** 此处后端没有提供注释 POST /app/delete */
 export async function deleteApp(body: API.DeleteRequest, options?: { [key: string]: any }) {
   return request<API.BaseResponseBoolean>('/app/delete', {

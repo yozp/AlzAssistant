@@ -137,40 +137,43 @@
                   <div class="message-avatar">
                     <a-avatar :size="40" style="background-color: #1890ff">AI</a-avatar>
                   </div>
-                  <div class="message-content">
-                    <MarkdownRenderer v-if="message.content" :content="message.content" />
-                    <div
-                      v-if="message.toolRequests && message.toolRequests.length > 0"
-                      class="tool-stream-wrapper"
-                    >
-                      <div class="tool-stream-title">工具调用</div>
+                  <div class="ai-message-body">
+                    <div class="message-content">
+                      <MarkdownRenderer v-if="message.content" :content="message.content" />
                       <div
-                        v-for="(item, i) in message.toolRequests"
-                        :key="`tool-request-${index}-${i}`"
-                        class="tool-stream-item"
+                        v-if="message.toolRequests && message.toolRequests.length > 0"
+                        class="tool-stream-wrapper"
                       >
-                        <span class="tool-stream-tag pending">已选择</span>
-                        <span>{{ item }}</span>
+                        <div class="tool-stream-title">工具调用</div>
+                        <div
+                          v-for="(item, i) in message.toolRequests"
+                          :key="`tool-request-${index}-${i}`"
+                          class="tool-stream-item"
+                        >
+                          <span class="tool-stream-tag pending">已选择</span>
+                          <span>{{ item }}</span>
+                        </div>
+                      </div>
+                      <div
+                        v-if="message.toolExecuted && message.toolExecuted.length > 0"
+                        class="tool-stream-wrapper"
+                      >
+                        <div class="tool-stream-title">工具执行结果</div>
+                        <div
+                          v-for="(item, i) in message.toolExecuted"
+                          :key="`tool-executed-${index}-${i}`"
+                          class="tool-stream-item"
+                        >
+                          <span class="tool-stream-tag done">已完成</span>
+                          <span>{{ item }}</span>
+                        </div>
+                      </div>
+                      <div v-if="message.loading" class="loading-indicator">
+                        <a-spin size="small" />
+                        <span>AI 正在思考...</span>
                       </div>
                     </div>
-                    <div
-                      v-if="message.toolExecuted && message.toolExecuted.length > 0"
-                      class="tool-stream-wrapper"
-                    >
-                      <div class="tool-stream-title">工具执行结果</div>
-                      <div
-                        v-for="(item, i) in message.toolExecuted"
-                        :key="`tool-executed-${index}-${i}`"
-                        class="tool-stream-item"
-                      >
-                        <span class="tool-stream-tag done">已完成</span>
-                        <span>{{ item }}</span>
-                      </div>
-                    </div>
-                    <div v-if="message.loading" class="loading-indicator">
-                      <a-spin size="small" />
-                      <span>AI 正在思考...</span>
-                    </div>
+                    <!-- 猜你想问：放在气泡下方，参考豆包设计 -->
                     <div v-if="message.suggestions && message.suggestions.length > 0" class="suggestions-wrapper">
                       <div
                         v-for="(s, i) in message.suggestions"
@@ -214,6 +217,17 @@
                   </a-button>
                 </a-tooltip>
                 <a-button
+                  v-if="isGenerating"
+                  danger
+                  @click="stopGenerating"
+                  class="send-btn"
+                >
+                  <template #icon>
+                    <PauseCircleOutlined />
+                  </template>
+                </a-button>
+                <a-button
+                  v-else
                   type="primary"
                   @click="sendMessage"
                   :loading="isGenerating"
@@ -269,7 +283,7 @@ import { ref, onMounted, nextTick, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser'
-import { addApp, listMyAppVoByPage, deleteApp, getAppSuggestions } from '@/api/appController'
+import { addApp, listMyAppVoByPage, deleteApp, getAppSuggestions, stopChat } from '@/api/appController'
 import { listAppChatHistory } from '@/api/chatHistoryController'
 import { API_BASE_URL } from '@/config/env'
 import {
@@ -284,6 +298,7 @@ import {
   FileTextOutlined,
   RightOutlined,
   FormOutlined,
+  PauseCircleOutlined,
 } from '@ant-design/icons-vue'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import ScaleTestModal from '@/components/ScaleTestModal.vue'
@@ -410,6 +425,8 @@ const messages = ref<Message[]>([])
 const userInput = ref('')
 const isGenerating = ref(false)
 const messagesContainer = ref<HTMLElement>()
+const currentEventSource = ref<EventSource | null>(null)
+const currentGeneratingAiIndex = ref<number | null>(null)
 
 type StreamMessageType = 'ai_response' | 'tool_request' | 'tool_executed'
 
@@ -512,6 +529,8 @@ const fetchSuggestions = async (userQuestion: string, aiResponse: string, aiMess
       // 消息可能已被清空（例如切换会话），所以再次校验索引
       if (messages.value[aiMessageIndex] && messages.value[aiMessageIndex].type === 'ai') {
         messages.value[aiMessageIndex].suggestions = res.data.data
+        // 弹出猜你想问后自动滚动到底部，确保所有建议问题可见
+        nextTick(() => scrollToBottom(true))
       }
     }
   } catch (e) {
@@ -857,7 +876,36 @@ const sendMessage = async (chatType?: string, userLocation?: string) => {
 
   // 开始生成
   isGenerating.value = true
+  currentGeneratingAiIndex.value = aiMessageIndex
   await generateChat(messageContent, aiMessageIndex, chatType, userLocation)
+}
+
+// 停止当前生成：本地先即时停流，再通知后端停止并落库
+const stopGenerating = async () => {
+  if (!isGenerating.value) {
+    return
+  }
+  isGenerating.value = false
+  currentEventSource.value?.close()
+  currentEventSource.value = null
+
+  const aiIndex = currentGeneratingAiIndex.value
+  if (aiIndex !== null && messages.value[aiIndex]) {
+    messages.value[aiIndex].loading = false
+    delete messages.value[aiIndex].seenToolRequestIds
+  }
+  currentGeneratingAiIndex.value = null
+
+  const appId = currentAppId.value
+  if (!appId) {
+    return
+  }
+  try {
+    await stopChat({ appId })
+  } catch (error) {
+    console.warn('停止生成请求失败：', error)
+  }
+  message.info('已停止生成')
 }
 
 // 为聊天创建新应用（使用第一条消息作为 initPrompt）
@@ -930,6 +978,8 @@ const generateChat = async (userMessage: string, aiMessageIndex: number, chatTyp
     eventSource = new EventSource(url, {
       withCredentials: true,
     })
+    currentEventSource.value = eventSource
+    currentGeneratingAiIndex.value = aiMessageIndex
 
     let fullContent = ''
 
@@ -944,6 +994,9 @@ const generateChat = async (userMessage: string, aiMessageIndex: number, chatTyp
         if (!messages.value[aiMessageIndex]) {
           console.warn('消息对象已被删除，停止更新')
           eventSource?.close()
+          if (currentEventSource.value === eventSource) {
+            currentEventSource.value = null
+          }
           return
         }
 
@@ -1000,6 +1053,12 @@ const generateChat = async (userMessage: string, aiMessageIndex: number, chatTyp
       streamCompleted = true
       isGenerating.value = false
       eventSource?.close()
+      if (currentEventSource.value === eventSource) {
+        currentEventSource.value = null
+      }
+      if (currentGeneratingAiIndex.value === aiMessageIndex) {
+        currentGeneratingAiIndex.value = null
+      }
       if (messages.value[aiMessageIndex]) {
         messages.value[aiMessageIndex].loading = false
         // 仅用于去重的运行时字段，结束后移除
@@ -1027,6 +1086,12 @@ const generateChat = async (userMessage: string, aiMessageIndex: number, chatTyp
       if (eventSource?.readyState === EventSource.CLOSED) {
         streamCompleted = true
         isGenerating.value = false
+        if (currentEventSource.value === eventSource) {
+          currentEventSource.value = null
+        }
+        if (currentGeneratingAiIndex.value === aiMessageIndex) {
+          currentGeneratingAiIndex.value = null
+        }
       } else if (eventSource?.readyState === EventSource.CONNECTING) {
         // 连接中，可能是重连，暂时不处理
         return
@@ -1065,6 +1130,13 @@ const handleError = (error: unknown, aiMessageIndex: number) => {
   }
   
   isGenerating.value = false
+  if (currentGeneratingAiIndex.value === aiMessageIndex) {
+    currentGeneratingAiIndex.value = null
+  }
+  if (currentEventSource.value) {
+    currentEventSource.value.close()
+    currentEventSource.value = null
+  }
 }
 
 // 滚动到底部
@@ -1536,6 +1608,14 @@ onMounted(() => {
   margin-left: 52px;
 }
 
+.ai-message-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
 .ai-message .message-content {
   background: #f5f5f5;
   color: #333;
@@ -1618,19 +1698,28 @@ onMounted(() => {
   gap: 10px;
 }
 
+/* 猜你想问：在气泡下方独立展示 */
+.ai-message-body .suggestions-wrapper {
+  margin-right: 52px;
+}
 .suggestions-wrapper {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 0;
+  padding-left: 0;
 }
 
 .suggestion-item {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 10px;
-  border-radius: 999px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  width: fit-content;
+  max-width: 100%;
+  box-sizing: border-box;
   background: #fafafa;
   border: 1px solid #f0f0f0;
   color: #555;
@@ -1740,6 +1829,10 @@ onMounted(() => {
   .ai-message .message-content {
     margin-right: 0;
     max-width: 85%;
+  }
+
+  .ai-message-body .suggestions-wrapper {
+    margin-right: 0;
   }
 }
 </style>

@@ -253,6 +253,17 @@ public class AppController {
     }
 
     /**
+     * 停止当前应用的流式对话。
+     */
+    @PostMapping("/chat/stop")
+    public BaseResponse<Boolean> stopChat(@RequestParam Long appId, HttpServletRequest request) {
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID无效");
+        User loginUser = userService.getLoginUser(request);
+        boolean stopped = appService.stopChat(appId, loginUser);
+        return ResultUtils.success(stopped);
+    }
+
+    /**
      * 生成“猜你想问”推荐问题（不持久化，异步调用，不影响主对话）。
      *
      * @param request      HttpServletRequest
