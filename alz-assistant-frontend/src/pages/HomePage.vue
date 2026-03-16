@@ -316,8 +316,13 @@ const greetingText = computed(() => {
   else if (hour >= 11 && hour < 13) timePeriod = '中午'
   else if (hour >= 13 && hour < 18) timePeriod = '下午'
   else timePeriod = '晚上'
-  
-  const name = loginUserStore.loginUser.userName || loginUserStore.loginUser.userAccount || '你好'
+
+  // 未登录时不展示“未登录”等账户占位名，统一使用“你好”
+  const isLoggedIn = !!loginUserStore.loginUser.id
+  const name = isLoggedIn
+    ? (loginUserStore.loginUser.userName || loginUserStore.loginUser.userAccount || '你好')
+    : '你好'
+
   return `${name}，${timePeriod}好，今天也祝你身体健康，生活愉快`
 })
 
