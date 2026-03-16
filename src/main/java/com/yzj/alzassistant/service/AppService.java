@@ -44,12 +44,14 @@ public interface AppService extends IService<App> {
     /**
      * 应用与用户聊天，生成代码（流式）
      *
-     * @param appId     应用ID
-     * @param message   用户消息
-     * @param loginUser 当前登录用户
+     * @param appId        应用ID
+     * @param message      用户消息
+     * @param loginUser    当前登录用户
+     * @param chatType     对话类型（如 agent）
+     * @param userLocation 用户实时位置，格式 经度,纬度（可选，用于报告智能体附近医院搜索）
      * @return 生成代码的流式响应
      */
-    Flux<String> chatToGen(Long appId, String message, User loginUser, String chatType);
+    Flux<String> chatToGen(Long appId, String message, User loginUser, String chatType, String userLocation);
 
     /**
      * 异步根据用户首条问题生成并更新对话标题（不超过 10 字）。

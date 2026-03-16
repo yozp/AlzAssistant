@@ -21,6 +21,7 @@ public class AgentStreamHandler {
 
     private static final Map<String, String> TOOL_NAME_TO_CN = Map.ofEntries(
             Map.entry("searchNearbyHospitals", "地图搜索"),
+            Map.entry("getUserLocation", "获取用户位置"),
             Map.entry("geocode", "地理编码"),
             Map.entry("generateMedicalReport", "PDF 报告生成"),
             Map.entry("googleSearch", "网络搜索"),

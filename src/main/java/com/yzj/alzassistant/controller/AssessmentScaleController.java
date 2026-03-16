@@ -117,4 +117,28 @@ public class AssessmentScaleController {
         return ResultUtils.success(vo);
     }
 
+    /**
+     * 分页查询量表（普通用户可用，仅查询已启用的量表）
+     */
+    @PostMapping("/list/page/vo")
+    public BaseResponse<Page<AssessmentScaleVO>> listAssessmentScaleVOByPage(@RequestBody AssessmentScaleQueryRequest queryRequest) {
+        ThrowUtils.throwIf(queryRequest == null, ErrorCode.PARAMS_ERROR);
+        // 强制只查询启用的量表
+        queryRequest.setStatus(1);
+        Page<AssessmentScaleVO> page = assessmentScaleService.listAssessmentScaleByPage(queryRequest);
+        return ResultUtils.success(page);
+    }
+
+    /**
+     * 根据id获取量表详情（普通用户可用）
+     */
+    @GetMapping("/get/vo")
+    public BaseResponse<AssessmentScaleVO> getAssessmentScaleVOById(@RequestParam Long id) {
+        ThrowUtils.throwIf(id == null || id <= 0, ErrorCode.PARAMS_ERROR);
+        AssessmentScaleVO vo = assessmentScaleService.getAssessmentScaleById(id);
+        // 如果量表未启用，普通用户不能查看
+        ThrowUtils.throwIf(vo.getStatus() != 1, ErrorCode.NO_AUTH_ERROR, "该量表未启用");
+        return ResultUtils.success(vo);
+    }
+
 }

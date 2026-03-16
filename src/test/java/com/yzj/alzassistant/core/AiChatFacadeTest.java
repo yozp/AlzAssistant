@@ -32,7 +32,7 @@ class AiChatFacadeTest {
         String userMessage = "你好";
         ChatTypeEnum chatTypeEnum = ChatTypeEnum.CHAT_TYPE_ENUM;
         Long appId = 1L;
-        Flux<String> flux = aiChatFacade.generateAndSaveStreamFacade(userMessage, chatTypeEnum, appId);
+        Flux<String> flux = aiChatFacade.generateAndSaveStreamFacade(userMessage, chatTypeEnum, appId,  null);
         // 阻塞等待所有数据收集完成
         List<String> results = flux.collectList().block();
         assertNotNull(results);

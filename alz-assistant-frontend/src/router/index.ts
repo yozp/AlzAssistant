@@ -3,6 +3,7 @@ import HomePage from '@/pages/HomePage.vue'
 import UserLoginPage from '@/pages/user/UserLoginPage.vue'
 import UserRegisterPage from '@/pages/user/UserRegisterPage.vue'
 import UserProfilePage from '@/pages/user/UserProfilePage.vue'
+import AssessmentRecordPage from '@/pages/user/AssessmentRecordPage.vue'
 import UserManagePage from '@/pages/admin/UserManagePage.vue'
 import KnowledgeBaseManagePage from '@/pages/admin/KnowledgeBaseManagePage.vue'
 import AiModelManagePage from '@/pages/admin/AiModelManagePage.vue'
@@ -30,6 +31,11 @@ const router = createRouter({
       path: '/user/profile',
       name: '个人信息',
       component: UserProfilePage,
+    },
+    {
+      path: '/assessmentRecord',
+      name: '评估记录',
+      component: AssessmentRecordPage,
     },
     {
       path: '/admin/userManage',

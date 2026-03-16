@@ -6,6 +6,7 @@ import cn.hutool.http.HttpResponse;
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
+import com.yzj.alzassistant.context.UserLocationContext;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import lombok.extern.slf4j.Slf4j;
@@ -103,6 +104,16 @@ public class MapSearchTool {
             log.error("地图搜索工具执行异常", e);
             return "地图搜索出错: " + e.getMessage();
         }
+    }
+
+    @Tool("获取当前用户已授权的实时位置，返回经度,纬度（高德坐标系）。若用户未授权或未提供则返回说明文字，此时可改用 geocode 或城市名进行搜索。")
+    public String getUserLocation() {
+        log.info("调用获取用户位置工具");
+        String lngLat = UserLocationContext.get();
+        if (StrUtil.isNotBlank(lngLat)) {
+            return lngLat;
+        }
+        return "用户未提供实时位置，请使用城市名或地址进行搜索，或让用户授权位置后再试。";
     }
 
     @Tool("将地址或地名转换为经纬度坐标（地理编码），返回格式为 '经度,纬度'")

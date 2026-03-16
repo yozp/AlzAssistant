@@ -87,6 +87,21 @@ export async function listAssessmentScaleByPage(
   })
 }
 
+/** 分页查询量表（普通用户，仅启用） POST /assessmentScale/list/page/vo */
+export async function listAssessmentScaleVOByPage(
+  body: API.AssessmentScaleQueryRequest,
+  options?: { [key: string]: any }
+) {
+  return request<API.BaseResponsePageAssessmentScaleVO>('/assessmentScale/list/page/vo', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    data: body,
+    ...(options || {}),
+  })
+}
+
 /** 更新量表 POST /assessmentScale/update */
 export async function updateAssessmentScale(
   body: API.AssessmentScaleUpdateRequest,

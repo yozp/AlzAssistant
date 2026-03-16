@@ -224,14 +224,15 @@ public class AppController {
     public Flux<ServerSentEvent<String>> doChatWithSSE(@RequestParam Long appId,
                                                        @RequestParam String message,
                                                        @RequestParam(required = false) String chatType,
+                                                       @RequestParam(required = false) String userLocation,
                                                        HttpServletRequest request) {
         // 参数校验
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID无效");
         ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "用户消息不能为空");
         // 获取当前登录用户
         User loginUser = userService.getLoginUser(request);
-        // 调用服务生成代码（流式），chatType 可选覆盖应用默认对话类型
-        Flux<String> contentFlux = appService.chatToGen(appId, message, loginUser, chatType);
+        // 调用服务生成代码（流式），chatType 可选覆盖应用默认对话类型，userLocation 为前端传来的用户实时位置（经度,纬度）
+        Flux<String> contentFlux = appService.chatToGen(appId, message, loginUser, chatType, userLocation);
         // 转换为 ServerSentEvent 格式
         return contentFlux
                 .map(chunk -> {

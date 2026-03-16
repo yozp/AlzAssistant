@@ -86,6 +86,12 @@ const originItems = [
     title: '主页',
   },
   {
+    key: '/assessmentRecord',
+    icon: () => h(FormOutlined),
+    label: '评估记录',
+    title: '评估记录',
+  },
+  {
     key: '/admin/userManage',
     icon: () => h(UserOutlined),
     label: '用户管理',

@@ -14,6 +14,16 @@
           <!-- 新建对话按钮 -->
           <div class="new-chat-wrapper">
             <a-button
+              type="default"
+              block
+              class="scale-test-btn"
+              @click="openScaleSelectModal"
+              style="margin-bottom: 12px;"
+            >
+              <template #icon><FormOutlined /></template>
+              量表自测
+            </a-button>
+            <a-button
               type="primary"
               block
               class="new-chat-btn"
@@ -87,6 +97,31 @@
                 <!-- 欢迎/问候区域 -->
                 <div v-else-if="messages.length === 0 && !isGenerating" class="welcome-section">
                   <h2 class="greeting-title">{{ greetingText }}</h2>
+                  
+                  <!-- 量表推荐区域 -->
+                  <div class="recommended-scales" v-if="recommendedScales.length > 0">
+                    <div 
+                      v-for="scale in recommendedScales" 
+                      :key="scale.id" 
+                      class="scale-card"
+                      @click="startScaleTest(scale)"
+                    >
+                      <div class="scale-card-title">{{ scale.scaleName }}</div>
+                    </div>
+                  </div>
+
+                  <!-- 热门问题区域 -->
+                  <div class="hot-questions">
+                    <div 
+                      v-for="(question, index) in hotQuestions" 
+                      :key="index" 
+                      class="hot-question-item"
+                      @click="askHotQuestion(question)"
+                    >
+                      <BulbOutlined class="hot-question-icon" />
+                      <span>{{ question }}</span>
+                    </div>
+                  </div>
                 </div>
 
                 <div v-for="(message, index) in messages" :key="`message-${index}-${message.createTime || index}`" class="message-item">
@@ -195,6 +230,37 @@
         </div>
       </div>
     </div>
+
+    <!-- 量表选择弹窗 -->
+    <a-modal
+      v-model:open="scaleSelectModalVisible"
+      title="选择量表进行自测"
+      :footer="null"
+      width="600px"
+    >
+      <a-spin :spinning="loadingScales">
+        <div class="scale-select-list">
+          <div 
+            v-for="scale in allScales" 
+            :key="scale.id" 
+            class="scale-select-item"
+            @click="startScaleTest(scale)"
+          >
+            <div class="scale-select-title">{{ scale.scaleName }}</div>
+            <div class="scale-select-intro">{{ scale.scaleIntro || '暂无简介' }}</div>
+          </div>
+          <a-empty v-if="allScales.length === 0 && !loadingScales" description="暂无可用量表" />
+        </div>
+      </a-spin>
+    </a-modal>
+
+    <!-- 量表测试弹窗 -->
+    <ScaleTestModal
+      v-model:open="scaleTestModalVisible"
+      :scale="currentTestScale"
+      :app-id="currentAppId"
+      @send-to-ai="handleSendScaleResultToAI"
+    />
   </div>
 </template>
 
@@ -217,8 +283,11 @@ import {
   MenuUnfoldOutlined,
   FileTextOutlined,
   RightOutlined,
+  FormOutlined,
 } from '@ant-design/icons-vue'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
+import ScaleTestModal from '@/components/ScaleTestModal.vue'
+import { listAssessmentScaleVOByPage } from '@/api/assessmentScaleController'
 
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
@@ -236,6 +305,63 @@ const greetingText = computed(() => {
   const name = loginUserStore.loginUser.userName || loginUserStore.loginUser.userAccount || '你好'
   return `${name}，${timePeriod}好，今天也祝你身体健康，生活愉快`
 })
+
+// 量表和热门问题
+const recommendedScales = ref<API.AssessmentScaleVO[]>([])
+const allScales = ref<API.AssessmentScaleVO[]>([])
+const loadingScales = ref(false)
+const scaleSelectModalVisible = ref(false)
+const scaleTestModalVisible = ref(false)
+const currentTestScale = ref<API.AssessmentScaleVO | null>(null)
+
+const hotQuestions = [
+  '阿尔茨海默病有哪些早期症状？',
+  '如何预防阿尔茨海默病？',
+  '阿尔茨海默病和正常衰老有什么区别？'
+]
+
+const loadScales = async () => {
+  loadingScales.value = true
+  try {
+    const res = await listAssessmentScaleVOByPage({
+      pageNum: 1,
+      pageSize: 50,
+      status: 1 // 仅查询启用状态
+    })
+    if (res.data?.code === 0 && res.data.data?.records) {
+      allScales.value = res.data.data.records
+      // 首页最多展示3个
+      recommendedScales.value = allScales.value.slice(0, 3)
+    }
+  } catch (e) {
+    console.error('获取量表失败', e)
+  } finally {
+    loadingScales.value = false
+  }
+}
+
+const openScaleSelectModal = () => {
+  scaleSelectModalVisible.value = true
+  if (allScales.value.length === 0) {
+    loadScales()
+  }
+}
+
+const startScaleTest = (scale: API.AssessmentScaleVO) => {
+  scaleSelectModalVisible.value = false
+  currentTestScale.value = scale
+  scaleTestModalVisible.value = true
+}
+
+const askHotQuestion = (question: string) => {
+  userInput.value = question
+  sendMessage()
+}
+
+const handleSendScaleResultToAI = (msg: string) => {
+  userInput.value = msg
+  sendMessage()
+}
 
 // 侧边栏状态
 const isSidebarOpen = ref(false)
@@ -298,6 +424,7 @@ interface AgentInnerMessage {
 
 const TOOL_NAME_TO_CN: Record<string, string> = {
   searchNearbyHospitals: '地图搜索',
+  getUserLocation: '获取用户位置',
   geocode: '地理编码',
   generateMedicalReport: 'PDF 报告生成',
   googleSearch: '网络搜索',
@@ -652,13 +779,44 @@ const handleEnterKey = (e: KeyboardEvent) => {
   sendMessage()
 }
 
-// 智能体模式：生成诊断报告
-const sendAgentMessage = async () => {
-  await sendMessage('agent')
+// 请求用户位置（用于报告智能体推荐附近医院），返回 "经度,纬度" 或 null
+const getCurrentPositionOptional = (): Promise<string | null> => {
+  if (!navigator.geolocation) {
+    return Promise.resolve(null)
+  }
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      resolve(null)
+    }, 12000)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        clearTimeout(timeout)
+        const { longitude, latitude } = pos.coords
+        resolve(`${longitude},${latitude}`)
+      },
+      () => {
+        clearTimeout(timeout)
+        resolve(null)
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    )
+  })
 }
 
-// 发送消息，chatType 可选：不传走普通模式，传 'agent' 走智能体
-const sendMessage = async (chatType?: string) => {
+// 智能体模式：生成诊断报告（会先尝试获取用户位置以推荐附近医院）
+const sendAgentMessage = async () => {
+  let userLocation: string | null = null
+  try {
+    message.loading({ content: '正在获取位置以推荐附近医院…', key: 'location', duration: 0 })
+    userLocation = await getCurrentPositionOptional()
+  } finally {
+    message.destroy('location')
+  }
+  await sendMessage('agent', userLocation ?? undefined)
+}
+
+// 发送消息，chatType 可选：不传走普通模式，传 'agent' 走智能体；userLocation 为 "经度,纬度" 供智能体地图工具使用
+const sendMessage = async (chatType?: string, userLocation?: string) => {
   if (!userInput.value.trim() || isGenerating.value) {
     return
   }
@@ -699,7 +857,7 @@ const sendMessage = async (chatType?: string) => {
 
   // 开始生成
   isGenerating.value = true
-  await generateChat(messageContent, aiMessageIndex, chatType)
+  await generateChat(messageContent, aiMessageIndex, chatType, userLocation)
 }
 
 // 为聊天创建新应用（使用第一条消息作为 initPrompt）
@@ -736,7 +894,7 @@ const handleCreateNewAppForChat = async (firstMessage: string, aiMessageIndex: n
 }
 
 // 生成聊天 - 使用 EventSource 处理流式响应
-const generateChat = async (userMessage: string, aiMessageIndex: number, chatType?: string) => {
+const generateChat = async (userMessage: string, aiMessageIndex: number, chatType?: string, userLocation?: string) => {
   // 确保应用ID存在
   if (!currentAppId.value) {
     handleError(new Error('应用ID不存在'), aiMessageIndex)
@@ -761,6 +919,9 @@ const generateChat = async (userMessage: string, aiMessageIndex: number, chatTyp
     })
     if (chatType) {
       params.append('chatType', chatType)
+    }
+    if (userLocation) {
+      params.append('userLocation', userLocation)
     }
 
     const url = `${API_BASE_URL}/app/chat?${params}`
@@ -1013,6 +1174,7 @@ onMounted(() => {
   if (loginUserStore.loginUser.id) {
     loadAppList(true)
   }
+  loadScales()
 })
 </script>
 
@@ -1241,6 +1403,105 @@ onMounted(() => {
   font-size: 24px;
   color: #333;
   margin: 0;
+}
+
+/* 量表推荐区域 */
+.recommended-scales {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 32px;
+  flex-wrap: wrap;
+}
+
+.scale-card {
+  background: #f5f5f5;
+  border-radius: 12px;
+  padding: 16px 24px;
+  cursor: pointer;
+  transition: all 0.3s;
+  min-width: 120px;
+  text-align: center;
+}
+
+.scale-card:hover {
+  background: #e6f7ff;
+  color: #1890ff;
+  transform: translateY(-2px);
+}
+
+.scale-card-title {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* 热门问题区域 */
+.hot-questions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+
+.hot-question-item {
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 20px;
+  padding: 8px 16px;
+  font-size: 13px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hot-question-item:hover {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+.hot-question-icon {
+  color: #faad14;
+}
+
+/* 量表选择列表 */
+.scale-select-list {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 10px 0;
+}
+
+.scale-select-item {
+  padding: 16px;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.scale-select-item:hover {
+  border-color: #1890ff;
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.1);
+}
+
+.scale-select-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.scale-select-intro {
+  font-size: 13px;
+  color: #999;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .message-item {

@@ -55,6 +55,72 @@ declare namespace API {
     updateTime?: string
   }
 
+  type AssessmentRecordAddRequest = {
+    symptomDesc?: string
+    assessorType?: number
+    assessmentResult?: string
+    riskLevel?: number
+    suggestion?: string
+    totalScore?: number
+    scaleId?: string | number
+    scaleNameSnapshot?: string
+    scaleVersionNo?: number
+    answerJson?: string
+    ruleSnapshotJson?: string
+    aiSourceType?: number
+    reportUrl?: string
+  }
+
+  type AssessmentRecordQueryRequest = {
+    pageNum?: number
+    pageSize?: number
+    sortField?: string
+    sortOrder?: string
+    assessorType?: number
+    riskLevel?: number
+    scaleId?: string | number
+  }
+
+  type AssessmentRecordVO = {
+    id?: string | number
+    userId?: string | number
+    appId?: string | number
+    symptomDesc?: string
+    assessorType?: number
+    assessmentResult?: string
+    riskLevel?: number
+    suggestion?: string
+    totalScore?: number
+    scaleId?: string | number
+    scaleNameSnapshot?: string
+    scaleVersionNo?: number
+    answerJson?: string
+    ruleSnapshotJson?: string
+    aiSourceType?: number
+    reportUrl?: string
+    createTime?: string
+  }
+
+  type BaseResponseLong = {
+    code?: number
+    data?: number | string
+    message?: string
+  }
+
+  type BaseResponsePageAssessmentRecordVO = {
+    code?: number
+    data?: PageAssessmentRecordVO
+    message?: string
+  }
+
+  type PageAssessmentRecordVO = {
+    records?: AssessmentRecordVO[]
+    total?: number
+    size?: number
+    current?: number
+    pages?: number
+  }
+
   type AssessmentScaleAddRequest = {
     scaleName?: string
     scaleIntro?: string
@@ -340,6 +406,8 @@ declare namespace API {
   type doChatWithSSEParams = {
     appId: number
     message: string
+    chatType?: string
+    userLocation?: string
   }
 
   type enableAiModelParams = {

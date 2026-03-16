@@ -126,7 +126,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
     }
 
     @Override
-    public Flux<String> chatToGen(Long appId, String message, User loginUser, String chatType) {
+    public Flux<String> chatToGen(Long appId, String message, User loginUser, String chatType, String userLocation) {
         // 1. 参数校验
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 不能为空");
         ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "用户消息不能为空");
@@ -160,8 +160,8 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
                         .appId(appId.toString())
                         .build()
         );
-        // 7. 调用 AI 生成回复
-        Flux<String> contentFlux  = aiChatFacade.generateAndSaveStreamFacade(message, chatTypeEnum, appId);
+        // 7. 调用 AI 生成回复（userLocation 为前端传来的用户实时位置，供智能体地图工具使用）
+        Flux<String> contentFlux  = aiChatFacade.generateAndSaveStreamFacade(message, chatTypeEnum, appId, userLocation);
         // 8. 收集AI响应内容并在完成后记录到对话历史
         StringBuilder aiResponseBuilder = new StringBuilder();
         return contentFlux

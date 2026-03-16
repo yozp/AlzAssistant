@@ -54,14 +54,16 @@ public class AiChatFacade {
 
     /**
      * 统一入口：根据类型生成并保存对话结果（流式）
+     *
+     * @param userLocation 用户实时位置（经度,纬度），可选，供智能体地图工具使用
      */
-    public Flux<String> generateAndSaveStreamFacade(String userMessage, ChatTypeEnum chatTypeEnum, Long appId) {
+    public Flux<String> generateAndSaveStreamFacade(String userMessage, ChatTypeEnum chatTypeEnum, Long appId, String userLocation) {
         if (chatTypeEnum == null) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "对话类型为空");
         }
         return switch (chatTypeEnum) {
             case CHAT_TYPE_ENUM -> generateAndSaveChatStream(userMessage, appId);
-            case AGENT_TYPE_ENUM -> generateAndSaveAgentStream(userMessage, appId);
+            case AGENT_TYPE_ENUM -> generateAndSaveAgentStream(userMessage, appId, userLocation);
             default -> {
                 String errorMessage = "不支持的对话类型：" + chatTypeEnum.getValue();
                 throw new BusinessException(ErrorCode.SYSTEM_ERROR, errorMessage);
@@ -90,8 +92,8 @@ public class AiChatFacade {
     /**
      * 智能体模式：调用 MedicalAgentService 运行智能体，透传结构化 JSON 流式消息。
      */
-    private Flux<String> generateAndSaveAgentStream(String userMessage, Long appId) {
-        Flux<String> jsonFlux = medicalAgentService.runMedicalAgent(appId, userMessage);
+    private Flux<String> generateAndSaveAgentStream(String userMessage, Long appId, String userLocation) {
+        Flux<String> jsonFlux = medicalAgentService.runMedicalAgent(appId, userMessage, userLocation);
         StringBuilder agentBuilder = new StringBuilder();
         return jsonFlux
                 .doOnNext(chunk -> agentBuilder.append(extractAgentTextForHistory(chunk)))

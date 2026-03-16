@@ -132,7 +132,7 @@ create table if not exists assessment_record
     id                 bigint auto_increment comment 'id' primary key,
     userId             bigint                                not null comment '用户id',
     appId              bigint                                null comment '关联会话id',
-    symptomDesc        text                                  not null comment '症状描述',
+    symptomDesc        text                                  null comment '症状描述',
     assessorType       tinyint                               not null comment '评估人：1-AI 2-量表',
     assessmentResult   text                                  null comment '评估结果',
     riskLevel          tinyint                               null comment '风险等级：0-无 1-低 2-中 3-高',
@@ -156,6 +156,8 @@ create table if not exists assessment_record
     INDEX idx_createTime (createTime),
     INDEX idx_userId_createTime (userId, createTime)
 ) comment '评估记录' collate = utf8mb4_unicode_ci;
+
+drop table if exists assessment_record;
 
 -- 症状记录表
 create table if not exists symptom_record
