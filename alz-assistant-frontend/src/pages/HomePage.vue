@@ -96,6 +96,23 @@
                 </div>
                 <!-- 欢迎/问候区域 -->
                 <div v-else-if="messages.length === 0 && !isGenerating" class="welcome-section">
+                  <!-- 心电图动画 -->
+                  <div class="heartbeat-container">
+                    <svg viewBox="0 0 2000 100" preserveAspectRatio="none" class="heartbeat-svg">
+                      <path 
+                        d="M 0,50 L 920,50 L 935,45 L 950,50 L 960,65 L 980,10 L 1000,90 L 1015,45 L 1030,50 L 1050,45 L 1065,50 L 2000,50" 
+                        fill="none" 
+                        stroke="#e5e5e5" 
+                        stroke-width="3" 
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        vector-effect="non-scaling-stroke"
+                        pathLength="100"
+                        class="heartbeat-path"
+                      />
+                    </svg>
+                  </div>
+
                   <h2 class="greeting-title">{{ greetingText }}</h2>
                   
                   <!-- 量表推荐区域 -->
@@ -323,7 +340,7 @@ const greetingText = computed(() => {
     ? (loginUserStore.loginUser.userName || loginUserStore.loginUser.userAccount || 'Hello')
     : 'Hello'
 
-  return `${name}，${timePeriod}好，今天也祝你身体健康，生活愉快`
+  return `${name}，${timePeriod}好，欢迎来到Alz咨询小站`
 })
 
 // 量表和热门问题
@@ -1335,6 +1352,7 @@ onMounted(() => {
   min-width: 0;
   background: #fff;
   overflow-y: auto;
+  overflow-x: hidden;
   height: 100%;
 }
 
@@ -1461,6 +1479,88 @@ onMounted(() => {
   min-height: 300px;
   padding: 40px 0;
   text-align: center;
+  position: relative;
+}
+
+/* 入场动画 */
+@keyframes slideUpFade {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.welcome-section .greeting-title {
+  position: relative;
+  z-index: 1;
+  animation: slideUpFade 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.welcome-section .recommended-scales {
+  position: relative;
+  z-index: 1;
+  opacity: 0;
+  animation: slideUpFade 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  animation-delay: 0.05s;
+}
+
+.welcome-section .hot-questions {
+  position: relative;
+  z-index: 1;
+  opacity: 0;
+  animation: slideUpFade 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  animation-delay: 0.1s;
+}
+
+.chat-centered .input-area-fixed {
+  opacity: 0;
+  animation: slideUpFade 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  animation-delay: 0.15s;
+}
+
+/* 心电图动画 */
+.heartbeat-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100vw;
+  height: 150px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.heartbeat-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.heartbeat-path {
+  stroke-dasharray: 30 100;
+  stroke-dashoffset: 30;
+  animation: shootHeartbeat 0.5s linear forwards;
+}
+
+@keyframes shootHeartbeat {
+  0% {
+    stroke-dashoffset: 30;
+    opacity: 0;
+  }
+  5% {
+    opacity: 1;
+  }
+  95% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: -100;
+    opacity: 0;
+  }
 }
 
 .greeting-title {
@@ -1614,17 +1714,20 @@ onMounted(() => {
 }
 
 .ai-message-body {
-  flex: 1;
+  flex: 0 1 auto;
   display: flex;
   flex-direction: column;
   gap: 10px;
   min-width: 0;
+  max-width: 100%;
 }
 
 .ai-message .message-content {
   background: #f5f5f5;
   color: #333;
   margin-right: 52px;
+  width: fit-content;
+  max-width: 100%;
 }
 
 .message-avatar {
