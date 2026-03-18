@@ -145,12 +145,12 @@
             <version>1.1.0-beta7</version>
         </dependency>
 
-        <!-- LangChain4j 简化RAG功能支持，包含了内置的离线 Embedding 模型 -->
-        <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j-easy-rag</artifactId>
-            <version>1.1.0-beta7</version>
-        </dependency>
+<!--        &lt;!&ndash; LangChain4j 简化RAG功能支持，包含了内置的离线 Embedding 模型 &ndash;&gt;-->
+<!--        <dependency>-->
+<!--            <groupId>dev.langchain4j</groupId>-->
+<!--            <artifactId>langchain4j-easy-rag</artifactId>-->
+<!--            <version>1.1.0-beta7</version>-->
+<!--        </dependency>-->
 
         <!--==========================================================================================-->
 
@@ -245,9 +245,13 @@
 
     <build>
         <plugins>
+            <!-- Spring Boot 打包插件，显式指定启动类，避免 repackage 阶段找不到 main class -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <mainClass>com.yzj.alzassistant.AlzAssistantApplication</mainClass>
+                </configuration>
             </plugin>
         </plugins>
     </build>

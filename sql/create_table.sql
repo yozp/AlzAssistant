@@ -3,6 +3,10 @@
 -- 创建库
 create database if not exists alz_assistant;
 
+# drop database if exists alz_assistant;
+
+# drop table if exists xxx;
+
 -- 切换库
 use alz_assistant;
 
@@ -156,8 +160,6 @@ create table if not exists assessment_record
     INDEX idx_createTime (createTime),
     INDEX idx_userId_createTime (userId, createTime)
 ) comment '评估记录' collate = utf8mb4_unicode_ci;
-
-drop table if exists assessment_record;
 
 -- 症状记录表
 create table if not exists symptom_record

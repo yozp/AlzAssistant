@@ -121,9 +121,16 @@ const originItems = [
 const filterMenus = (menus = [] as MenuProps['items']) => {
   return menus?.filter((menu) => {
     const menuKey = menu?.key as string
+    // 管理员菜单：仅管理员可见
     if (menuKey?.startsWith('/admin')) {
       const loginUser = loginUserStore.loginUser
       if (!loginUser || loginUser.userRole !== 'admin') {
+        return false
+      }
+    }
+    // 评估记录：仅登录用户可见
+    if (menuKey === '/assessmentRecord') {
+      if (!loginUserStore.loginUser.id) {
         return false
       }
     }

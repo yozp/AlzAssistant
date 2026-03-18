@@ -320,8 +320,8 @@ const greetingText = computed(() => {
   // 未登录时不展示“未登录”等账户占位名，统一使用“你好”
   const isLoggedIn = !!loginUserStore.loginUser.id
   const name = isLoggedIn
-    ? (loginUserStore.loginUser.userName || loginUserStore.loginUser.userAccount || '你好')
-    : '你好'
+    ? (loginUserStore.loginUser.userName || loginUserStore.loginUser.userAccount || 'Hello')
+    : 'Hello'
 
   return `${name}，${timePeriod}好，今天也祝你身体健康，生活愉快`
 })

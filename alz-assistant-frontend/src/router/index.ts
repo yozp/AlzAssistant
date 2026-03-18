@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useLoginUserStore } from '@/stores/loginUser'
 import HomePage from '@/pages/HomePage.vue'
 import UserLoginPage from '@/pages/user/UserLoginPage.vue'
 import UserRegisterPage from '@/pages/user/UserRegisterPage.vue'
@@ -58,6 +59,16 @@ const router = createRouter({
       component: AssessmentScaleManagePage,
     },
   ],
+})
+
+// 评估记录页需登录，未登录重定向到主页
+router.beforeEach((to) => {
+  if (to.path === '/assessmentRecord') {
+    const loginUserStore = useLoginUserStore()
+    if (!loginUserStore.loginUser.id) {
+      return { path: '/', replace: true }
+    }
+  }
 })
 
 export default router
