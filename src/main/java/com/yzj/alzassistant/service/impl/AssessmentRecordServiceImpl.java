@@ -12,7 +12,10 @@ import com.yzj.alzassistant.model.entity.AssessmentRecord;
 import com.yzj.alzassistant.model.entity.User;
 import com.yzj.alzassistant.model.vo.AssessmentRecordVO;
 import com.yzj.alzassistant.mapper.AssessmentRecordMapper;
+import com.yzj.alzassistant.model.entity.App;
+import com.yzj.alzassistant.service.AppService;
 import com.yzj.alzassistant.service.AssessmentRecordService;
+import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -25,6 +28,9 @@ import java.util.stream.Collectors;
  */
 @Service
 public class AssessmentRecordServiceImpl extends ServiceImpl<AssessmentRecordMapper, AssessmentRecord> implements AssessmentRecordService {
+
+    @Resource
+    private AppService appService;
 
     @Override
     public Long addAssessmentRecord(AssessmentRecordAddRequest addRequest, User loginUser) {
@@ -63,5 +69,21 @@ public class AssessmentRecordServiceImpl extends ServiceImpl<AssessmentRecordMap
             voPage.setRecords(voList);
         }
         return voPage;
+    }
+
+    @Override
+    public Long addAssessmentRecordForAgent(Long appId, AssessmentRecordAddRequest addRequest) {
+        ThrowUtils.throwIf(addRequest == null, ErrorCode.PARAMS_ERROR);
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 不能为空");
+        App app = appService.getById(appId);
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+        ThrowUtils.throwIf(app.getUserId() == null, ErrorCode.PARAMS_ERROR, "应用无关联用户");
+        AssessmentRecord assessmentRecord = new AssessmentRecord();
+        BeanUtil.copyProperties(addRequest, assessmentRecord);
+        assessmentRecord.setUserId(app.getUserId());
+        assessmentRecord.setAppId(appId);
+        boolean result = this.save(assessmentRecord);
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        return assessmentRecord.getId();
     }
 }

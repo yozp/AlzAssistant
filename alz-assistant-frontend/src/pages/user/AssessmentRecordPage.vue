@@ -64,6 +64,13 @@
             </a-tooltip>
             <span v-else class="text-muted">—</span>
           </template>
+          <template v-else-if="column.dataIndex === 'scaleNameSnapshot'">
+            <span v-if="record.assessorType === 1">AI 初步评估</span>
+            <span v-else>{{ record.scaleNameSnapshot || '—' }}</span>
+          </template>
+          <template v-else-if="column.dataIndex === 'assessmentResult' && record.reportUrl">
+            <a :href="record.reportUrl" target="_blank" rel="noopener" class="report-link">PDF 报告</a>
+          </template>
           <template v-else-if="column.dataIndex === 'createTime'">
             {{ formatTime(record.createTime) }}
           </template>
@@ -87,8 +94,11 @@
               {{ currentRecord.assessorType === 1 ? 'AI' : '量表' }}
             </a-tag>
           </a-descriptions-item>
-          <a-descriptions-item label="量表名称" :span="2">
+          <a-descriptions-item v-if="currentRecord.assessorType === 2" label="量表名称" :span="2">
             {{ currentRecord.scaleNameSnapshot }} (v{{ currentRecord.scaleVersionNo }})
+          </a-descriptions-item>
+          <a-descriptions-item v-else label="评估方式" :span="2">
+            AI 初步评估（症状描述 + PDF 报告）
           </a-descriptions-item>
           <a-descriptions-item label="症状描述" :span="2">
             {{ currentRecord.symptomDesc || '无' }}
@@ -96,22 +106,29 @@
           <a-descriptions-item label="评估时间">
             {{ formatTime(currentRecord.createTime) }}
           </a-descriptions-item>
-          <a-descriptions-item label="总分">
+          <a-descriptions-item v-if="currentRecord.assessorType === 2" label="总分">
             <span class="score-text">{{ currentRecord.totalScore }}</span> 分
           </a-descriptions-item>
-          <a-descriptions-item label="风险等级">
+          <a-descriptions-item v-if="currentRecord.assessorType === 2" label="风险等级">
             <a-tag :color="getRiskLevelColor(currentRecord.riskLevel)">
               {{ getRiskLevelText(currentRecord.riskLevel) }}
             </a-tag>
           </a-descriptions-item>
           <a-descriptions-item label="评估结果" :span="2">
-            {{ currentRecord.assessmentResult || '无' }}
+            <a v-if="currentRecord.reportUrl" :href="currentRecord.reportUrl" target="_blank" rel="noopener">
+              {{ currentRecord.assessmentResult || 'PDF 报告下载链接' }}
+            </a>
+            <span v-else>{{ currentRecord.assessmentResult || '无' }}</span>
           </a-descriptions-item>
-          <a-descriptions-item label="建议" :span="2">
+          <a-descriptions-item v-if="currentRecord.assessorType === 2" label="建议" :span="2">
             {{ currentRecord.suggestion || '无' }}
           </a-descriptions-item>
         </a-descriptions>
 
+        <div v-if="currentRecord.reportUrl" class="report-section">
+          <h3 class="section-title">PDF 报告</h3>
+          <a :href="currentRecord.reportUrl" target="_blank" rel="noopener" class="report-link">查看/下载 PDF 报告</a>
+        </div>
         <div v-if="currentRecord.answerJson" class="answers-section">
           <h3 class="section-title">作答详情</h3>
           <div class="answers-list">
@@ -333,6 +350,19 @@ onMounted(() => {
   font-size: 18px;
   font-weight: bold;
   color: #1890ff;
+}
+
+.report-section {
+  margin-top: 24px;
+}
+
+.report-link {
+  color: #1890ff;
+  text-decoration: none;
+}
+
+.report-link:hover {
+  text-decoration: underline;
 }
 
 .answers-section {

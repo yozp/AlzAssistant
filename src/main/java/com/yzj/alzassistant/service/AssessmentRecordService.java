@@ -24,4 +24,14 @@ public interface AssessmentRecordService extends IService<AssessmentRecord> {
      * 分页查询我的评估记录
      */
     Page<AssessmentRecordVO> listMyAssessmentRecordVOByPage(AssessmentRecordQueryRequest queryRequest, User loginUser);
+
+    /**
+     * Agent 生成 PDF 报告时添加 AI 评估记录。
+     * 由系统自动调用，根据 appId 获取 userId，无需登录用户上下文。
+     *
+     * @param appId     会话 ID
+     * @param addRequest 评估记录请求
+     * @return 新增记录 ID
+     */
+    Long addAssessmentRecordForAgent(Long appId, AssessmentRecordAddRequest addRequest);
 }
