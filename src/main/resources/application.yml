@@ -9,7 +9,7 @@ spring:
     username: root
     password: hsp
   profiles:
-    active: local
+    active: prod
   # redis
   data:
     redis:
@@ -54,6 +54,15 @@ management:
   endpoint: # 端点配置
     health:
       show-details: always # 显示健康检查详情
+
+# RAG 知识库配置（可选，不配置则使用默认值）
+alz:
+  rag:
+    max-results: 5
+    min-score: 0.5
+    chunk-size: 1000
+    chunk-overlap: 200
+    bootstrap-enabled: true
 
 # HTTP代理配置（用于访问OpenAI等被墙的API）
 http:
