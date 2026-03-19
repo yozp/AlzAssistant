@@ -1,76 +1,128 @@
+# 主配置文件 - 公共配置与结构（开源）
+# 敏感信息（数据库、Redis、各类 API Key、腾讯云密钥等）请在 application-local.yml 或 application-prod.yml 中配置
+# 本地开发用 local 配置，生产部署用 prod 配置
 
 spring:
   application:
     name: AlzAssistant
-    # mysql
+  # MySQL 数据源（url/username/password 在 local/prod 中配置）
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/alz_assistant
-    username: root
-    password: hsp
+    username: xxx
+    password: xxx
   profiles:
-    active: prod
-  # redis
+    active: local  # 本地开发用 local，部署生产用 prod
+  # Redis 缓存（host/password/username 在 local/prod 中配置）
   data:
     redis:
-      host: localhost
+      host: xxx   # 如 localhost 或 远程 Redis 地址
       port: 6379
       ttl: 3600
-  # session 配置
+  # Session 存储到 Redis，30 天过期
   session:
     store-type: redis
-    # session 30 天过期
     timeout: 2592000
 
-
+# 服务端口与路径
 server:
   port: 8126
   servlet:
     context-path: /api
-    # cookie 30 天过期
     session:
       cookie:
-        max-age: 2592000
+        max-age: 2592000  # cookie 30 天过期
 
-
-# springdoc-openapi
+# SpringDoc 接口文档扫描
 springdoc:
   group-configs:
     - group: 'default'
       packages-to-scan: com.yzj.alzassistant.controller
-# knife4j
+
+# Knife4j API 文档增强
 knife4j:
   enable: true
   setting:
     language: zh_cn
 
-
-# 应用监控端点配置
+# Actuator 监控端点（健康检查、Prometheus 等）
 management:
-  endpoints: # 暴露的监控端点
+  endpoints:
     web:
       exposure:
-        include: health,info,prometheus # 暴露健康检查、应用信息、Prometheus指标端点
-  endpoint: # 端点配置
+        include: health,info,prometheus
+  endpoint:
     health:
-      show-details: always # 显示健康检查详情
+      show-details: always
 
-# RAG 知识库配置（可选，不配置则使用默认值）
+# RAG 知识库配置（向量检索、分块等）
 alz:
   rag:
-    max-results: 5
-    min-score: 0.5
-    chunk-size: 1000
-    chunk-overlap: 200
-    bootstrap-enabled: true
+    max-results: 5      # 检索返回条数
+    min-score: 0.5      # 最小相似度阈值
+    chunk-size: 1000    # 文本分块大小
+    chunk-overlap: 200  # 分块重叠
+    bootstrap-enabled: true  # 启动时是否加载知识库
 
-# HTTP代理配置（用于访问OpenAI等被墙的API）
+# HTTP 代理（用于访问被墙的 OpenAI 等 API）
 http:
   proxy:
-    enabled: false # 是否启用代理
-    host: # 代理服务器地址，例如: 127.0.0.1 或 proxy.example.com
-    port: # 代理服务器端口，例如: 7890 或 1080
+    enabled: false
+    host:  # 代理地址，如 127.0.0.1
+    port:  # 代理端口，如 7890
 
+# Langchain4j AI 配置（api-key、base-url 在 local/prod 中配置）
+langchain4j:
+  ollama:
+    streaming-chat-model:
+      base-url: xxx  # Ollama 服务地址，如 http://localhost:11434
+      model-name: qwen3:4b
+      log-requests: true
+      log-responses: true
+      max-tokens: 8129
+      think: false
+  open-ai:
+    chat-model:
+      api-key: xxx  # DeepSeek/OpenAI 兼容接口的 Key
+      base-url: https://api.deepseek.com
+      model-name: deepseek-chat
+      log-requests: true
+      log-responses: true
+      max-tokens: 8129
+    streaming-chat-model:
+      api-key: xxx
+      base-url: https://api.deepseek.com
+      model-name: deepseek-chat
+      log-requests: true
+      log-responses: true
+      max-tokens: 8129
+  community:
+    dashscope:
+      embedding-model:
+        model-name: text-embedding-v4
+        api-key: xxx  # 通义千问 Embedding 模型 Key
 
+# 默认 AI 模型（数据库无启用模型时使用，api-key 在 local/prod 中配置）
+ai-model:
+  default:
+    model-key: gpt-4o
+    base-url: https://api.openai.com/v1
+    api-key: xxx  # OpenAI 或其他兼容接口的 Key
+    model-name: gpt-4o
 
+# Google SerpApi 联网搜索（api-key 在 local/prod 中配置）
+serp-api:
+  api-key: xxx
 
+# 高德地图 API（用于附近医院搜索，api-key 在 local/prod 中配置）
+amap:
+  api-key: xxx
+
+# 腾讯云对象存储 COS（用于图片等文件存储，secretId/secretKey 等在 local/prod 中配置）
+cos:
+  client:
+    host: xxx       # 如 https://xxx.cos.ap-guangzhou.myqcloud.com
+    secretId: xxx    # 腾讯云 SecretId
+    secretKey: xxx   # 腾讯云 SecretKey
+    region: xxx      # 如 ap-guangzhou
+    bucket: xxx      # 存储桶名称
