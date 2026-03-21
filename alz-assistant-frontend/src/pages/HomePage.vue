@@ -276,12 +276,26 @@
                     </template>
                   </a-button>
                 </a-tooltip>
-                <a-tooltip title="生成诊断报告（最好先输入目前症状，再点击该按钮）">
+                <a-tooltip title="专业知识询问：先选中，输入问题后点发送（结合知识库）；再次点击取消">
                   <a-button
-                    @click="sendAgentMessage"
-                    :loading="isGenerating"
-                    :disabled="!userInput.trim()"
+                    type="text"
+                    class="knowledge-btn"
+                    :class="{ 'knowledge-btn--selected': inputExtraMode === 'knowledge' }"
+                    :disabled="isGenerating"
+                    @click="toggleKnowledgeMode"
+                  >
+                    <template #icon>
+                      <ReadOutlined />
+                    </template>
+                  </a-button>
+                </a-tooltip>
+                <a-tooltip title="生成诊断报告：先选中并描述症状，再点发送（将尝试获取位置以推荐附近医院）；再次点击取消">
+                  <a-button
+                    type="text"
                     class="agent-btn"
+                    :class="{ 'agent-btn--selected': inputExtraMode === 'agent' }"
+                    :disabled="isGenerating"
+                    @click="toggleAgentMode"
                   >
                     <template #icon>
                       <FileTextOutlined />
@@ -369,6 +383,7 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   FileTextOutlined,
+  ReadOutlined,
   RightOutlined,
   FormOutlined,
   PauseCircleOutlined,
@@ -528,6 +543,20 @@ const inputDragOver = ref(false)
 const messages = ref<Message[]>([])
 const userInput = ref('')
 const isGenerating = ref(false)
+
+/** 输入区附加模式：普通 / 专业知识(RAG) / 诊断报告智能体，三者互斥，默认普通 */
+type InputExtraMode = 'none' | 'knowledge' | 'agent'
+const inputExtraMode = ref<InputExtraMode>('none')
+
+const toggleKnowledgeMode = () => {
+  if (isGenerating.value) return
+  inputExtraMode.value = inputExtraMode.value === 'knowledge' ? 'none' : 'knowledge'
+}
+
+const toggleAgentMode = () => {
+  if (isGenerating.value) return
+  inputExtraMode.value = inputExtraMode.value === 'agent' ? 'none' : 'agent'
+}
 
 const sendButtonDisabled = computed(() => {
   if (isGenerating.value) return true
@@ -1064,22 +1093,30 @@ const getCurrentPositionOptional = (): Promise<string | null> => {
   })
 }
 
-// 智能体模式：生成诊断报告（会先尝试获取用户位置以推荐附近医院）
-const sendAgentMessage = async () => {
-  let userLocation: string | null = null
-  try {
-    message.loading({ content: '正在获取位置以推荐附近医院…', key: 'location', duration: 0 })
-    userLocation = await getCurrentPositionOptional()
-  } finally {
-    message.destroy('location')
-  }
-  await sendMessage('agent', userLocation ?? undefined)
-}
-
-// 发送消息，chatType 可选：不传走普通模式，传 'agent' 走智能体；userLocation 为 "经度,纬度" 供智能体地图工具使用
-const sendMessage = async (chatType?: string, userLocation?: string) => {
+// 发送消息：根据 inputExtraMode 决定是否走知识库、智能体（与主发送/回车共用）
+const sendMessage = async () => {
   if (isGenerating.value || sendButtonDisabled.value) {
     return
+  }
+
+  /** 待发送成功后再清空，避免「创建应用失败」时丢失已选模式 */
+  const mode = inputExtraMode.value
+
+  let chatType: string | undefined
+  let userLocation: string | undefined
+  let useRag = false
+
+  if (mode === 'agent') {
+    chatType = 'agent'
+    try {
+      message.loading({ content: '正在获取位置以推荐附近医院…', key: 'location', duration: 0 })
+      const loc = await getCurrentPositionOptional()
+      userLocation = loc ?? undefined
+    } finally {
+      message.destroy('location')
+    }
+  } else if (mode === 'knowledge') {
+    useRag = true
   }
 
   const messageContent = userInput.value.trim()
@@ -1123,14 +1160,16 @@ const sendMessage = async (chatType?: string, userLocation?: string) => {
     if (!success) {
       messages.value.pop() // 移除AI消息
       messages.value.pop() // 移除用户消息
+      inputExtraMode.value = mode
       return
     }
   }
 
-  // 开始生成
+  // 开始生成（本次请求已提交，清除附加模式）
+  inputExtraMode.value = 'none'
   isGenerating.value = true
   currentGeneratingAiIndex.value = aiMessageIndex
-  await generateChat(messageContent, aiMessageIndex, chatType, userLocation, doneAttachments)
+  await generateChat(messageContent, aiMessageIndex, chatType, userLocation, doneAttachments, useRag)
 }
 
 // 停止当前生成：本地先即时停流，再通知后端停止并落库
@@ -1208,7 +1247,8 @@ const generateChat = async (
   aiMessageIndex: number,
   chatType?: string,
   userLocation?: string,
-  attachments?: ChatAttachmentMsg[]
+  attachments?: ChatAttachmentMsg[],
+  useRag?: boolean
 ) => {
   if (!currentAppId.value) {
     handleError(new Error('应用ID不存在'), aiMessageIndex)
@@ -1291,6 +1331,7 @@ const generateChat = async (
     if (userMessage) qs.set('message', userMessage)
     if (chatType) qs.set('chatType', chatType)
     if (userLocation) qs.set('userLocation', userLocation)
+    if (useRag) qs.set('useRag', 'true')
     const chatUrl = `${API_BASE_URL}/app/chat?${qs}`
     const hasAtt = attachments && attachments.length > 0
     const res = await fetch(chatUrl, {
@@ -1749,14 +1790,30 @@ onMounted(() => {
   background: #f0f7ff;
 }
 
+.knowledge-btn {
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.knowledge-btn:hover:not(:disabled) {
+  color: #1890ff;
+}
+
+.knowledge-btn--selected {
+  color: #1890ff !important;
+  background: rgba(24, 144, 255, 0.12) !important;
+}
+
 .agent-btn {
-  border-color: #52c41a;
-  color: #52c41a;
+  color: rgba(0, 0, 0, 0.65);
 }
 
 .agent-btn:hover:not(:disabled) {
-  border-color: #73d13d;
-  color: #73d13d;
+  color: #52c41a;
+}
+
+.agent-btn--selected {
+  color: #52c41a !important;
+  background: rgba(82, 196, 26, 0.12) !important;
 }
 
 /* 消息样式复用 */

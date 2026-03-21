@@ -226,6 +226,7 @@ public class AppController {
                                                        @RequestParam String message,
                                                        @RequestParam(required = false) String chatType,
                                                        @RequestParam(required = false) String userLocation,
+                                                       @RequestParam(required = false, defaultValue = "false") boolean useRag,
                                                        HttpServletRequest request) {
         // 参数校验
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID无效");
@@ -233,12 +234,12 @@ public class AppController {
         // 获取当前登录用户
         User loginUser = userService.getLoginUser(request);
         // 调用服务生成代码（流式），chatType 可选覆盖应用默认对话类型，userLocation 为前端传来的用户实时位置（经度,纬度）
-        Flux<String> contentFlux = appService.chatToGen(appId, message, loginUser, chatType, userLocation);
+        Flux<String> contentFlux = appService.chatToGen(appId, message, loginUser, chatType, userLocation, null, useRag);
         return wrapChatFlux(contentFlux);
     }
 
     /**
-     * 应用与用户聊天（流式）。
+     * 应用与用户聊天（流式），通过 POST 请求发送附件。 
      *
      * @param appId        应用主键
      * @param message      用户消息
@@ -253,6 +254,7 @@ public class AppController {
                                                            @RequestParam(required = false) String message,
                                                            @RequestParam(required = false) String chatType,
                                                            @RequestParam(required = false) String userLocation,
+                                                           @RequestParam(required = false, defaultValue = "false") boolean useRag,
                                                            @RequestBody(required = false) List<ChatAttachmentItem> attachments,
                                                            HttpServletRequest request) {
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID无效");
@@ -262,7 +264,7 @@ public class AppController {
         if (attachments != null && !attachments.isEmpty()) {
             attachmentsJson = JSONUtil.toJsonStr(attachments);
         }
-        Flux<String> contentFlux = appService.chatToGen(appId, msg, loginUser, chatType, userLocation, attachmentsJson);
+        Flux<String> contentFlux = appService.chatToGen(appId, msg, loginUser, chatType, userLocation, attachmentsJson, useRag);
         return wrapChatFlux(contentFlux);
     }
 

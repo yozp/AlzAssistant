@@ -136,12 +136,18 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
 
     @Override
     public Flux<String> chatToGen(Long appId, String message, User loginUser, String chatType, String userLocation) {
-        return chatToGen(appId, message, loginUser, chatType, userLocation, null);
+        return chatToGen(appId, message, loginUser, chatType, userLocation, null, false);
     }
 
     @Override
     public Flux<String> chatToGen(Long appId, String message, User loginUser, String chatType, String userLocation,
                                   String attachmentsJson) {
+        return chatToGen(appId, message, loginUser, chatType, userLocation, attachmentsJson, false);
+    }
+
+    @Override
+    public Flux<String> chatToGen(Long appId, String message, User loginUser, String chatType, String userLocation,
+                                  String attachmentsJson, boolean useRag) {
         // 1. 参数校验
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 不能为空");
         ThrowUtils.throwIf(StrUtil.isBlank(message) && StrUtil.isBlank(attachmentsJson), ErrorCode.PARAMS_ERROR, "用户消息不能为空");
@@ -166,6 +172,8 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
                 throw new BusinessException(ErrorCode.SYSTEM_ERROR, "不支持的对话类型");
             }
         }
+        // 仅普通对话使用 useRag；智能体走独立管线
+        boolean ragForThisRequest = useRag && chatTypeEnum == ChatTypeEnum.CHAT_TYPE_ENUM;
         String messageForDb = message == null ? "" : message;
         String messageForAi = buildMessageForAi(message, attachmentsJson);
         ThrowUtils.throwIf(StrUtil.isBlank(messageForAi), ErrorCode.PARAMS_ERROR, "用户消息不能为空");
@@ -182,7 +190,8 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         // 7. 注册当前会话（同一 userId + appId 只允许 1 个进行中会话，新请求会覆盖旧请求）
         ActiveChatSession activeChatSession = activeChatSessionRegistry.register(loginUser.getId(), appId);
         // 8. 调用 AI 生成回复（userLocation 为前端传来的用户实时位置，供智能体地图工具使用）
-        Flux<String> contentFlux = aiChatFacade.generateAndSaveStreamFacade(messageForAi, chatTypeEnum, appId, userLocation);
+        Flux<String> contentFlux = aiChatFacade.generateAndSaveStreamFacade(messageForAi, chatTypeEnum, appId, userLocation,
+                ragForThisRequest);
         return contentFlux
                 .takeUntilOther(activeChatSession.stopSignal())
                 .map(chunk -> {

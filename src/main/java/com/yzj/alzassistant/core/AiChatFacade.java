@@ -58,11 +58,21 @@ public class AiChatFacade {
      * @param userLocation 用户实时位置（经度,纬度），可选，供智能体地图工具使用
      */
     public Flux<String> generateAndSaveStreamFacade(String userMessage, ChatTypeEnum chatTypeEnum, Long appId, String userLocation) {
+        return generateAndSaveStreamFacade(userMessage, chatTypeEnum, appId, userLocation, false);
+    }
+
+    /**
+     * 统一入口：根据类型生成并保存对话结果（流式），普通对话可指定是否启用知识库检索。
+     *
+     * @param useRag 仅对 {@link ChatTypeEnum#CHAT_TYPE_ENUM} 生效；智能体模式忽略该参数
+     */
+    public Flux<String> generateAndSaveStreamFacade(String userMessage, ChatTypeEnum chatTypeEnum, Long appId, String userLocation,
+                                                     boolean useRag) {
         if (chatTypeEnum == null) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "对话类型为空");
         }
         return switch (chatTypeEnum) {
-            case CHAT_TYPE_ENUM -> generateAndSaveChatStream(userMessage, appId);
+            case CHAT_TYPE_ENUM -> generateAndSaveChatStream(userMessage, appId, useRag);
             case AGENT_TYPE_ENUM -> generateAndSaveAgentStream(userMessage, appId, userLocation);
             default -> {
                 String errorMessage = "不支持的对话类型：" + chatTypeEnum.getValue();
@@ -73,9 +83,11 @@ public class AiChatFacade {
 
     /**
      * 普通对话模式：调用 AiChatServiceFactory 运行 LLM 并流式输出。
+     *
+     * @param useRag 是否注入知识库检索
      */
-    private Flux<String> generateAndSaveChatStream(String userMessage, Long appId) {
-        Flux<String> result = aiChatServiceFactory.getAiChatService(appId).chatToAiStream(userMessage);
+    private Flux<String> generateAndSaveChatStream(String userMessage, Long appId, boolean useRag) {
+        Flux<String> result = aiChatServiceFactory.getAiChatService(appId, useRag).chatToAiStream(userMessage);
         StringBuilder chatBuilder = new StringBuilder();
         return result
                 .doOnNext(chatBuilder::append)

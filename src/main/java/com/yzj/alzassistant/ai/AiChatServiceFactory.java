@@ -19,6 +19,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.time.Duration;
+import java.util.Objects;
 
 /**
  * AI 聊天服务工厂类
@@ -26,6 +27,36 @@ import java.time.Duration;
 @Configuration
 @Slf4j
 public class AiChatServiceFactory {
+
+    /**
+     * 缓存键：同一 appId 下「是否启用知识库检索」对应不同 AiServices 构建结果
+     */
+    private static final class ServiceCacheKey {
+        private final long appId;
+        private final boolean useRag;
+
+        ServiceCacheKey(long appId, boolean useRag) {
+            this.appId = appId;
+            this.useRag = useRag;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ServiceCacheKey that = (ServiceCacheKey) o;
+            return appId == that.appId && useRag == that.useRag;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(appId, useRag);
+        }
+    }
 
     @Resource
     private ChatModel chatModel;
@@ -64,29 +95,34 @@ public class AiChatServiceFactory {
      */
     @Bean
     public AiChatService aiChatService() {
-        return getAiChatService(0L);
+        return getAiChatService(0L, false);
     }
 
     //--------------------------------------------------------------------------------------------------------------------
 
     /**
-     * 根据 appId 获取服务
-     * 可以被 aiChatGeneratorService 方法自动创建默认实例（appId 为 0）
-     * 也可以被其他类调用动态创建（实现独立的AiChatGeneratorService对象）
+     * 根据 appId 获取服务（默认不启用 RAG，与流式对话默认行为一致）
      */
     public AiChatService getAiChatService(long appId) {
-        return serviceCache.get(appId, this::createAiChatService);
+        return getAiChatService(appId, false);
     }
 
     /**
-     * AI 服务实例缓存
+     * 根据 appId 与是否启用知识库检索获取服务实例
      */
-    private final Cache<Long, AiChatService> serviceCache = Caffeine.newBuilder()
-            .maximumSize(1000) //最大缓存 1000 个实例
+    public AiChatService getAiChatService(long appId, boolean useRag) {
+        return serviceCache.get(new ServiceCacheKey(appId, useRag), key -> createAiChatService(key.appId, key.useRag));
+    }
+
+    /**
+     * AI 服务实例缓存（按 appId + useRag 区分）
+     */
+    private final Cache<ServiceCacheKey, AiChatService> serviceCache = Caffeine.newBuilder()
+            .maximumSize(2000) // 约为 app 数 × 2（有/无 RAG）
             .expireAfterWrite(Duration.ofMinutes(30)) //写入后 30 分钟过期
             .expireAfterAccess(Duration.ofMinutes(10)) //访问后 10 分钟过期
             .removalListener((key, value, cause) -> {
-                log.debug("AI 服务实例被移除，appId: {}, 原因: {}", key, cause);
+                log.debug("AI 服务实例被移除，key: {}, 原因: {}", key, cause);
             })
             .build();
 
@@ -101,8 +137,10 @@ public class AiChatServiceFactory {
     /**
      * 创建 AI 聊天服务实例
      * AI 对话 => 从数据库中加载对话历史到 Redis => Redis 为 AI 提供对话记忆
+     *
+     * @param useRag 为 true 时注入 {@link ContentRetriever}，启用知识库检索
      */
-    private AiChatService createAiChatService(Long appId) {
+    private AiChatService createAiChatService(long appId, boolean useRag) {
         // 获取当前活跃的StreamingChatModel
         StreamingChatModel streamingChatModel = aiModelSwitchService.getCurrentStreamingChatModel();
         
@@ -121,16 +159,18 @@ public class AiChatServiceFactory {
                 .maxMessages(20)
                 .build();
         chatHistoryService.loadChatHistoryToMemory(appId, chatMemory, 20);
-        
-        return AiServices.builder(AiChatService.class)
+
+        var builder = AiServices.builder(AiChatService.class)
                 .chatModel(chatModel)
                 .streamingChatModel(streamingChatModel)
                 .tools(timeInfoTool,
                         webScrapingTool,
                         webSearchTool)
-                .chatMemory(chatMemory)
-                .contentRetriever(contentRetriever)// 开启 RAG 功能
-                .build();
+                .chatMemory(chatMemory);
+        if (useRag) {
+            builder.contentRetriever(contentRetriever);
+        }
+        return builder.build();
     }
 
 }

@@ -62,6 +62,14 @@ public interface AppService extends IService<App> {
                            String attachmentsJson);
 
     /**
+     * 同 {@link #chatToGen(Long, String, User, String, String, String)}，普通对话可指定是否启用知识库检索（智能体模式忽略）。
+     *
+     * @param useRag 为 true 且对话类型为普通聊天时启用 RAG
+     */
+    Flux<String> chatToGen(Long appId, String message, User loginUser, String chatType, String userLocation,
+                           String attachmentsJson, boolean useRag);
+
+    /**
      * 停止指定应用下当前用户的流式对话。
      *
      * @param appId     应用 ID
