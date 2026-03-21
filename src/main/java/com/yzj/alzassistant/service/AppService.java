@@ -54,6 +54,14 @@ public interface AppService extends IService<App> {
     Flux<String> chatToGen(Long appId, String message, User loginUser, String chatType, String userLocation);
 
     /**
+     * 应用与用户聊天（流式），支持用户附件 JSON（与 chat_history.attachments 一致）。
+     *
+     * @param attachmentsJson 附件列表 JSON 字符串，可为 null
+     */
+    Flux<String> chatToGen(Long appId, String message, User loginUser, String chatType, String userLocation,
+                           String attachmentsJson);
+
+    /**
      * 停止指定应用下当前用户的流式对话。
      *
      * @param appId     应用 ID

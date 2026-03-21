@@ -367,9 +367,24 @@ declare namespace API {
     message?: string
   }
 
+  type ChatAttachmentUploadResult = {
+    url?: string
+    fileName?: string
+    size?: number
+    /** image | document | spreadsheet | text */
+    type?: string
+  }
+
+  type BaseResponseChatAttachmentUploadResult = {
+    code?: number
+    data?: ChatAttachmentUploadResult
+    message?: string
+  }
+
   type ChatHistory = {
     id?: number
     message?: string
+    attachments?: string
     messageType?: string
     appId?: number
     userId?: number

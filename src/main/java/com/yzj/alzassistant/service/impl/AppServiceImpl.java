@@ -3,6 +3,8 @@ package com.yzj.alzassistant.service.impl;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONArray;
+import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
@@ -134,9 +136,15 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
 
     @Override
     public Flux<String> chatToGen(Long appId, String message, User loginUser, String chatType, String userLocation) {
+        return chatToGen(appId, message, loginUser, chatType, userLocation, null);
+    }
+
+    @Override
+    public Flux<String> chatToGen(Long appId, String message, User loginUser, String chatType, String userLocation,
+                                  String attachmentsJson) {
         // 1. 参数校验
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 不能为空");
-        ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "用户消息不能为空");
+        ThrowUtils.throwIf(StrUtil.isBlank(message) && StrUtil.isBlank(attachmentsJson), ErrorCode.PARAMS_ERROR, "用户消息不能为空");
         // 2. 查询应用信息
         App app = this.getById(appId);
         ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
@@ -158,8 +166,12 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
                 throw new BusinessException(ErrorCode.SYSTEM_ERROR, "不支持的对话类型");
             }
         }
-        // 5. 通过校验后，添加用户消息到对话历史
-        chatHistoryService.addChatMessage(appId, message, ChatHistoryMessageTypeEnum.USER.getValue(), loginUser.getId());
+        String messageForDb = message == null ? "" : message;
+        String messageForAi = buildMessageForAi(message, attachmentsJson);
+        ThrowUtils.throwIf(StrUtil.isBlank(messageForAi), ErrorCode.PARAMS_ERROR, "用户消息不能为空");
+        // 5. 添加用户消息到对话历史（正文与附件分列）
+        chatHistoryService.addChatMessage(appId, messageForDb, ChatHistoryMessageTypeEnum.USER.getValue(), loginUser.getId(),
+                attachmentsJson);
         // 6. 设置监控上下文
         MonitorContextHolder.setContext(
                 MonitorContext.builder()
@@ -170,7 +182,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         // 7. 注册当前会话（同一 userId + appId 只允许 1 个进行中会话，新请求会覆盖旧请求）
         ActiveChatSession activeChatSession = activeChatSessionRegistry.register(loginUser.getId(), appId);
         // 8. 调用 AI 生成回复（userLocation 为前端传来的用户实时位置，供智能体地图工具使用）
-        Flux<String> contentFlux  = aiChatFacade.generateAndSaveStreamFacade(message, chatTypeEnum, appId, userLocation);
+        Flux<String> contentFlux = aiChatFacade.generateAndSaveStreamFacade(messageForAi, chatTypeEnum, appId, userLocation);
         return contentFlux
                 .takeUntilOther(activeChatSession.stopSignal())
                 .map(chunk -> {
@@ -199,6 +211,43 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
                     // 流结束时清理（无论成功/失败/取消）
                     MonitorContextHolder.clearContext();
                 });
+    }
+
+    /**
+     * 合成发给模型的用户文本：正文 + 附件链接列表
+     */
+    private String buildMessageForAi(String message, String attachmentsJson) {
+        StringBuilder sb = new StringBuilder();
+        if (StrUtil.isNotBlank(message)) {
+            sb.append(message);
+        }
+        if (StrUtil.isNotBlank(attachmentsJson)) {
+            if (sb.length() > 0) {
+                sb.append("\n\n");
+            }
+            sb.append("用户附件链接：\n");
+            try {
+                JSONArray arr = JSONUtil.parseArray(attachmentsJson);
+                for (int i = 0; i < arr.size(); i++) {
+                    JSONObject o = arr.getJSONObject(i);
+                    if (o == null) {
+                        continue;
+                    }
+                    String url = o.getStr("url");
+                    if (StrUtil.isNotBlank(url)) {
+                        sb.append(url);
+                        String attType = o.getStr("type");
+                        if (StrUtil.isNotBlank(attType)) {
+                            sb.append("  [type=").append(attType).append(']');
+                        }
+                        sb.append('\n');
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("解析附件 JSON 失败: {}", attachmentsJson, e);
+            }
+        }
+        return sb.toString();
     }
 
     @Override

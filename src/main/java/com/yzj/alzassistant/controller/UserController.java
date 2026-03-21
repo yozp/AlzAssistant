@@ -27,7 +27,9 @@ import com.yzj.alzassistant.model.entity.User;
 import com.yzj.alzassistant.service.UserService;
 import com.yzj.alzassistant.manager.upload.FilePictureUpload;
 import com.yzj.alzassistant.manager.upload.UrlPictureUpload;
+import com.yzj.alzassistant.model.dto.file.ChatAttachmentUploadResult;
 import com.yzj.alzassistant.model.dto.file.UploadAvatarResult;
+import com.yzj.alzassistant.service.ChatAttachmentUploadService;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
@@ -51,6 +53,9 @@ public class UserController {
 
     @Resource
     private UrlPictureUpload urlPictureUpload;
+
+    @Resource
+    private ChatAttachmentUploadService chatAttachmentUploadService;
 
     /**
      * 用户注册
@@ -225,6 +230,17 @@ public class UserController {
     public BaseResponse<UploadAvatarResult> uploadAvatarByUrl(@RequestParam("fileUrl") String fileUrl) {
         ThrowUtils.throwIf(fileUrl == null || fileUrl.trim().isEmpty(), ErrorCode.PARAMS_ERROR, "文件地址不能为空");
         UploadAvatarResult result = urlPictureUpload.uploadPicture(fileUrl, "avatar");
+        return ResultUtils.success(result);
+    }
+
+    /**
+     * 聊天附件上传（COS /chat/），需登录。
+     */
+    @PostMapping("/upload/chat-attachment")
+    public BaseResponse<ChatAttachmentUploadResult> uploadChatAttachment(@RequestParam("file") MultipartFile file,
+                                                                         HttpServletRequest request) {
+        userService.getLoginUser(request);
+        ChatAttachmentUploadResult result = chatAttachmentUploadService.uploadChatAttachment(file);
         return ResultUtils.success(result);
     }
 

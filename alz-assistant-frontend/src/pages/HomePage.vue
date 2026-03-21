@@ -143,7 +143,22 @@
 
                 <div v-for="(message, index) in messages" :key="`message-${index}-${message.createTime || index}`" class="message-item">
                 <div v-if="message.type === 'user'" class="user-message">
-                  <div class="message-content">{{ message.content }}</div>
+                  <div class="user-message-main">
+                    <div
+                      v-if="message.attachments && message.attachments.length > 0"
+                      class="user-attachment-list"
+                    >
+                      <ChatAttachmentCard
+                        v-for="(att, ai) in message.attachments"
+                        :key="`${index}-att-${ai}`"
+                        :file-name="att.name"
+                        :size="att.size || 0"
+                        :url="att.url"
+                        :attachment-type="att.type"
+                      />
+                    </div>
+                    <div class="message-content">{{ message.content }}</div>
+                  </div>
                   <div class="message-avatar">
                     <a-avatar :size="40" :src="loginUserStore.loginUser.userAvatar">
                       {{ loginUserStore.loginUser.userName?.[0] || 'U' }}
@@ -210,18 +225,58 @@
 
           <!-- 输入区域 (固定底部) -->
           <div class="input-area-fixed">
-            <div class="input-wrapper">
+            <div
+              class="input-wrapper"
+              :class="{ 'is-dragover': inputDragOver }"
+              @dragover.prevent="inputDragOver = true"
+              @dragleave.prevent="onInputDragLeave"
+              @drop.prevent="onInputDrop"
+            >
+              <input
+                ref="chatFileInputRef"
+                type="file"
+                class="chat-file-input-hidden"
+                multiple
+                @change="onChatFileInputChange"
+              />
+              <div v-if="pendingAttachments.length > 0" class="pending-attachments">
+                <div class="pending-attachments-cards">
+                  <ChatAttachmentCard
+                    v-for="p in pendingAttachments"
+                    :key="p.id"
+                    :file-name="p.name"
+                    :size="p.size"
+                    :url="p.url"
+                    :attachment-type="p.type"
+                    :uploading="p.status === 'uploading'"
+                    show-remove
+                    @remove="removePendingAttachment(p.id)"
+                  />
+                </div>
+              </div>
               <a-textarea
                 v-model:value="userInput"
                 placeholder="给 AI 发送消息（按 Enter 发送，Shift+Enter 换行）"
-                :rows="4"
+                :rows="3"
                 :maxlength="1000"
                 @keydown.enter="handleEnterKey"
                 :disabled="isGenerating"
                 class="chat-input"
               />
               <div class="input-actions">
-                <a-tooltip title="生成诊断报告（智能体模式）">
+                <a-tooltip title="添加附件（最多 6 个）">
+                  <a-button
+                    type="text"
+                    class="input-plus-btn"
+                    :disabled="isGenerating || pendingAttachments.length >= MAX_CHAT_ATTACHMENTS"
+                    @click="openChatFilePicker"
+                  >
+                    <template #icon>
+                      <PlusOutlined />
+                    </template>
+                  </a-button>
+                </a-tooltip>
+                <a-tooltip title="生成诊断报告（最好先输入目前症状，再点击该按钮）">
                   <a-button
                     @click="sendAgentMessage"
                     :loading="isGenerating"
@@ -248,7 +303,7 @@
                   type="primary"
                   @click="sendMessage"
                   :loading="isGenerating"
-                  :disabled="!userInput.trim()"
+                  :disabled="sendButtonDisabled"
                   class="send-btn"
                 >
                   <template #icon>
@@ -302,6 +357,7 @@ import { message, Modal } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser'
 import { addApp, listMyAppVoByPage, deleteApp, getAppSuggestions, stopChat } from '@/api/appController'
 import { listAppChatHistory } from '@/api/chatHistoryController'
+import { uploadChatAttachment } from '@/api/userController'
 import { API_BASE_URL } from '@/config/env'
 import {
   PlusOutlined,
@@ -319,6 +375,7 @@ import {
 } from '@ant-design/icons-vue'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import ScaleTestModal from '@/components/ScaleTestModal.vue'
+import ChatAttachmentCard from '@/components/ChatAttachmentCard.vue'
 import { listAssessmentScaleVOByPage } from '@/api/assessmentScaleController'
 
 const router = useRouter()
@@ -432,9 +489,18 @@ const chatListRef = ref<HTMLElement>()
 const hasRestoredState = ref(false)
 
 // 消息列表
+/** 与后端 ChatAttachmentType.code 一致：image | document | spreadsheet | text */
+interface ChatAttachmentMsg {
+  url: string
+  name: string
+  size?: number
+  type?: string
+}
+
 interface Message {
   type: 'user' | 'ai'
   content: string
+  attachments?: ChatAttachmentMsg[]
   loading?: boolean
   createTime?: string
   suggestions?: string[]
@@ -443,11 +509,37 @@ interface Message {
   seenToolRequestIds?: string[]
 }
 
+const MAX_CHAT_ATTACHMENTS = 6
+
+interface PendingChatAttachment {
+  id: string
+  name: string
+  size: number
+  status: 'uploading' | 'done' | 'error'
+  url?: string
+  /** 上传成功后由服务端返回；上传中可按文件名推断展示 */
+  type?: string
+}
+
+const pendingAttachments = ref<PendingChatAttachment[]>([])
+const chatFileInputRef = ref<HTMLInputElement>()
+const inputDragOver = ref(false)
+
 const messages = ref<Message[]>([])
 const userInput = ref('')
 const isGenerating = ref(false)
+
+const sendButtonDisabled = computed(() => {
+  if (isGenerating.value) return true
+  const text = userInput.value.trim()
+  const uploading = pendingAttachments.value.some((p) => p.status === 'uploading')
+  const hasErr = pendingAttachments.value.some((p) => p.status === 'error')
+  const doneList = pendingAttachments.value.filter((p) => p.status === 'done' && p.url)
+  const canSend = (text.length > 0 || doneList.length > 0) && !uploading && !hasErr
+  return !canSend
+})
 const messagesContainer = ref<HTMLElement>()
-const currentEventSource = ref<EventSource | null>(null)
+const currentStreamAbort = ref<AbortController | null>(null)
 const currentGeneratingAiIndex = ref<number | null>(null)
 
 type StreamMessageType = 'ai_response' | 'tool_request' | 'tool_executed'
@@ -742,6 +834,38 @@ const handleCreateNewApp = async () => {
   }
 }
 
+const parseHistoryAttachments = (
+  raw: string | undefined,
+  messageType: string | undefined
+): ChatAttachmentMsg[] | undefined => {
+  if (messageType !== 'user' || !raw?.trim()) {
+    return undefined
+  }
+  try {
+    const arr = JSON.parse(raw) as unknown
+    if (!Array.isArray(arr)) {
+      return undefined
+    }
+    const out: ChatAttachmentMsg[] = []
+    for (const item of arr) {
+      if (!item || typeof item !== 'object') continue
+      const o = item as Record<string, unknown>
+      const url = o.url != null ? String(o.url) : ''
+      if (!url) continue
+      const t = o.type != null ? String(o.type) : undefined
+      out.push({
+        url,
+        name: o.name != null ? String(o.name) : '附件',
+        size: typeof o.size === 'number' ? o.size : undefined,
+        ...(t ? { type: t } : {}),
+      })
+    }
+    return out.length > 0 ? out : undefined
+  } catch {
+    return undefined
+  }
+}
+
 // 选择应用
 const selectApp = async (appId: string | number | undefined) => {
   if (!appId) {
@@ -783,6 +907,7 @@ const selectApp = async (appId: string | number | undefined) => {
           .map((chat) => ({
             type: (chat.messageType === 'user' ? 'user' : 'ai') as 'user' | 'ai',
             content: chat.message || '',
+            attachments: parseHistoryAttachments(chat.attachments, chat.messageType),
             createTime: chat.createTime,
           }))
           .sort((a, b) => {
@@ -818,6 +943,101 @@ const handleEnterKey = (e: KeyboardEvent) => {
   // 单独按 Enter 发送消息
   e.preventDefault()
   sendMessage()
+}
+
+const openChatFilePicker = () => {
+  chatFileInputRef.value?.click()
+}
+
+const onInputDragLeave = (e: DragEvent) => {
+  const cur = e.currentTarget as Node | null
+  const rel = e.relatedTarget as Node | null
+  if (cur && rel && cur.contains(rel)) return
+  inputDragOver.value = false
+}
+
+const onInputDrop = (e: DragEvent) => {
+  inputDragOver.value = false
+  const files = e.dataTransfer?.files
+  if (files?.length) {
+    addChatFiles(Array.from(files))
+  }
+}
+
+const onChatFileInputChange = (e: Event) => {
+  const input = e.target as HTMLInputElement
+  const files = input.files
+  if (files?.length) {
+    addChatFiles(Array.from(files))
+  }
+  input.value = ''
+}
+
+const addChatFiles = (files: File[]) => {
+  const room = MAX_CHAT_ATTACHMENTS - pendingAttachments.value.length
+  if (room <= 0) {
+    message.warning(`最多 ${MAX_CHAT_ATTACHMENTS} 个附件`)
+    return
+  }
+  const slice = files.slice(0, room)
+  if (files.length > room) {
+    message.warning(`最多 ${MAX_CHAT_ATTACHMENTS} 个附件，已添加前 ${room} 个`)
+  }
+  for (const file of slice) {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+    pendingAttachments.value.push({
+      id,
+      name: file.name,
+      size: file.size,
+      status: 'uploading',
+    })
+    uploadOnePending(id, file)
+  }
+}
+
+const uploadOnePending = async (id: string, file: File) => {
+  const fd = new FormData()
+  fd.append('file', file)
+  try {
+    const res = await uploadChatAttachment(fd)
+    if (res.data?.code === 0 && res.data.data?.url) {
+      const url = res.data.data.url
+      const serverName = res.data.data.fileName
+      const serverSize = res.data.data.size
+      const idx = pendingAttachments.value.findIndex((p) => p.id === id)
+      if (idx >= 0) {
+        const prev = pendingAttachments.value[idx]!
+        pendingAttachments.value[idx] = {
+          id: prev.id,
+          name: serverName || prev.name,
+          size: serverSize ?? prev.size,
+          status: 'done',
+          url,
+          type: res.data.data.type,
+        }
+      }
+    } else {
+      throw new Error(res.data?.message || '上传失败')
+    }
+  } catch (err) {
+    const idx = pendingAttachments.value.findIndex((p) => p.id === id)
+    if (idx >= 0) {
+      const prev = pendingAttachments.value[idx]!
+      pendingAttachments.value[idx] = {
+        id: prev.id,
+        name: prev.name,
+        size: prev.size,
+        status: 'error',
+        url: prev.url,
+      }
+    }
+    message.error('附件上传失败')
+    console.error(err)
+  }
+}
+
+const removePendingAttachment = (id: string) => {
+  pendingAttachments.value = pendingAttachments.value.filter((p) => p.id !== id)
 }
 
 // 请求用户位置（用于报告智能体推荐附近医院），返回 "经度,纬度" 或 null
@@ -858,17 +1078,28 @@ const sendAgentMessage = async () => {
 
 // 发送消息，chatType 可选：不传走普通模式，传 'agent' 走智能体；userLocation 为 "经度,纬度" 供智能体地图工具使用
 const sendMessage = async (chatType?: string, userLocation?: string) => {
-  if (!userInput.value.trim() || isGenerating.value) {
+  if (isGenerating.value || sendButtonDisabled.value) {
     return
   }
 
   const messageContent = userInput.value.trim()
+  const doneAttachments: ChatAttachmentMsg[] = pendingAttachments.value
+    .filter((p) => p.status === 'done' && p.url)
+    .map((p) => ({
+      url: p.url!,
+      name: p.name,
+      size: p.size,
+      ...(p.type ? { type: p.type } : {}),
+    }))
+
   userInput.value = ''
+  pendingAttachments.value = []
 
   // 添加用户消息
   messages.value.push({
     type: 'user',
     content: messageContent,
+    attachments: doneAttachments.length > 0 ? doneAttachments : undefined,
   })
 
   // 添加AI消息占位符（先添加，确保索引正确）
@@ -887,7 +1118,7 @@ const sendMessage = async (chatType?: string, userLocation?: string) => {
 
   // 如果没有选择应用，先创建新应用（使用第一条消息作为 initPrompt）
   if (!currentAppId.value) {
-    const success = await handleCreateNewAppForChat(messageContent, aiMessageIndex)
+    const success = await handleCreateNewAppForChat(messageContent, doneAttachments, aiMessageIndex)
     // 如果创建失败，移除刚才添加的消息
     if (!success) {
       messages.value.pop() // 移除AI消息
@@ -899,7 +1130,7 @@ const sendMessage = async (chatType?: string, userLocation?: string) => {
   // 开始生成
   isGenerating.value = true
   currentGeneratingAiIndex.value = aiMessageIndex
-  await generateChat(messageContent, aiMessageIndex, chatType, userLocation)
+  await generateChat(messageContent, aiMessageIndex, chatType, userLocation, doneAttachments)
 }
 
 // 停止当前生成：本地先即时停流，再通知后端停止并落库
@@ -908,8 +1139,8 @@ const stopGenerating = async () => {
     return
   }
   isGenerating.value = false
-  currentEventSource.value?.close()
-  currentEventSource.value = null
+  currentStreamAbort.value?.abort()
+  currentStreamAbort.value = null
 
   const aiIndex = currentGeneratingAiIndex.value
   if (aiIndex !== null && messages.value[aiIndex]) {
@@ -931,17 +1162,25 @@ const stopGenerating = async () => {
 }
 
 // 为聊天创建新应用（使用第一条消息作为 initPrompt）
-const handleCreateNewAppForChat = async (firstMessage: string, aiMessageIndex: number): Promise<boolean> => {
+const handleCreateNewAppForChat = async (
+  firstMessage: string,
+  attachments: ChatAttachmentMsg[],
+  aiMessageIndex: number
+): Promise<boolean> => {
   if (!loginUserStore.loginUser.id) {
     message.warning('请先登录')
     await router.push('/user/login')
     return false
   }
 
+  const initPrompt =
+    firstMessage.trim() ||
+    (attachments[0]?.name ? `附件：${attachments[0].name}` : '附件')
+
   creatingApp.value = true
   try {
     const res = await addApp({
-      initPrompt: firstMessage, // 使用用户的第一条消息作为 initPrompt
+      initPrompt,
     })
 
      if (res.data.code === 0 && res.data.data) {
@@ -963,172 +1202,195 @@ const handleCreateNewAppForChat = async (firstMessage: string, aiMessageIndex: n
   }
 }
 
-// 生成聊天 - 使用 EventSource 处理流式响应
-const generateChat = async (userMessage: string, aiMessageIndex: number, chatType?: string, userLocation?: string) => {
-  // 确保应用ID存在
+// 生成聊天 — POST + fetch 流式解析（支持附件）
+const generateChat = async (
+  userMessage: string,
+  aiMessageIndex: number,
+  chatType?: string,
+  userLocation?: string,
+  attachments?: ChatAttachmentMsg[]
+) => {
   if (!currentAppId.value) {
     handleError(new Error('应用ID不存在'), aiMessageIndex)
     return
   }
 
-  // 确保消息数组和索引有效
   if (!messages.value[aiMessageIndex]) {
     console.error('消息索引无效:', aiMessageIndex, '消息数组长度:', messages.value.length)
     handleError(new Error('消息索引无效'), aiMessageIndex)
     return
   }
 
-  let eventSource: EventSource | null = null
+  const ac = new AbortController()
+  currentStreamAbort.value = ac
+  currentGeneratingAiIndex.value = aiMessageIndex
+
   let streamCompleted = false
+  let fullContent = ''
+  const isAgentMode = chatType === 'agent'
+
+  const suggestionUserText =
+    userMessage.trim() ||
+    (attachments && attachments.length
+      ? `（附件：${attachments.map((a) => a.name).join('、')}）`
+      : '')
+
+  const applyChunk = (rawChunk: string) => {
+    if (!messages.value[aiMessageIndex]) return
+    const container = messagesContainer.value
+    const threshold = 50
+    const isAtBottom = container
+      ? container.scrollHeight - container.scrollTop - container.clientHeight <= threshold
+      : true
+
+    const aiMessage = messages.value[aiMessageIndex]
+    if (isAgentMode) {
+      const inner = parseAgentInnerMessage(rawChunk)
+      if (inner) {
+        const aiTextDelta = appendAgentChunkToMessage(aiMessage, inner)
+        if (aiTextDelta) {
+          fullContent += aiTextDelta
+        }
+      } else {
+        fullContent += rawChunk
+      }
+    } else {
+      fullContent += rawChunk
+    }
+    aiMessage.content = fullContent
+    messages.value[aiMessageIndex].loading = false
+    if (isAtBottom) {
+      scrollToBottom(true)
+    }
+  }
+
+  const finishStream = () => {
+    if (streamCompleted) return
+    streamCompleted = true
+    isGenerating.value = false
+    if (currentStreamAbort.value === ac) {
+      currentStreamAbort.value = null
+    }
+    if (currentGeneratingAiIndex.value === aiMessageIndex) {
+      currentGeneratingAiIndex.value = null
+    }
+    if (messages.value[aiMessageIndex]) {
+      messages.value[aiMessageIndex].loading = false
+      delete messages.value[aiMessageIndex].seenToolRequestIds
+    }
+    if (fullContent && messages.value[aiMessageIndex]) {
+      fetchSuggestions(suggestionUserText, fullContent, aiMessageIndex)
+    }
+    setTimeout(() => {
+      loadAppList(true)
+    }, 500)
+  }
 
   try {
-    // 构建URL参数
-    const params = new URLSearchParams({
-      appId: String(currentAppId.value),
-      message: userMessage,
+    const qs = new URLSearchParams({ appId: String(currentAppId.value) })
+    if (userMessage) qs.set('message', userMessage)
+    if (chatType) qs.set('chatType', chatType)
+    if (userLocation) qs.set('userLocation', userLocation)
+    const chatUrl = `${API_BASE_URL}/app/chat?${qs}`
+    const hasAtt = attachments && attachments.length > 0
+    const res = await fetch(chatUrl, {
+      method: 'POST',
+      credentials: 'include',
+      signal: ac.signal,
+      ...(hasAtt
+        ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(attachments) }
+        : {}),
     })
-    if (chatType) {
-      params.append('chatType', chatType)
+
+    if (!res.ok) {
+      handleError(new Error(`HTTP ${res.status}`), aiMessageIndex)
+      return
     }
-    if (userLocation) {
-      params.append('userLocation', userLocation)
+
+    const reader = res.body?.getReader()
+    if (!reader) {
+      handleError(new Error('无法读取响应流'), aiMessageIndex)
+      return
     }
 
-    const url = `${API_BASE_URL}/app/chat?${params}`
+    const decoder = new TextDecoder()
+    let buffer = ''
 
-    // 创建 EventSource 连接
-    eventSource = new EventSource(url, {
-      withCredentials: true,
-    })
-    currentEventSource.value = eventSource
-    currentGeneratingAiIndex.value = aiMessageIndex
-
-    let fullContent = ''
-
-    const isAgentMode = chatType === 'agent'
-
-    // 处理接收到的消息
-    eventSource.onmessage = function (event) {
-      if (streamCompleted) return
-
+    const processBlock = (block: string) => {
+      let eventName: string | undefined
+      let dataStr = ''
+      for (const line of block.split('\n')) {
+        if (line.startsWith('event:')) {
+          eventName = line.slice(6).trim()
+        } else if (line.startsWith('data:')) {
+          dataStr += line.slice(5).replace(/^\s+/, '')
+        }
+      }
+      if (eventName === 'done') {
+        finishStream()
+        return true
+      }
+      if (!dataStr) return false
       try {
-        // 检查消息对象是否还存在
-        if (!messages.value[aiMessageIndex]) {
-          console.warn('消息对象已被删除，停止更新')
-          eventSource?.close()
-          if (currentEventSource.value === eventSource) {
-            currentEventSource.value = null
-          }
+        const parsed = JSON.parse(dataStr) as { d?: string }
+        const content = parsed.d
+        if (content !== undefined && content !== null) {
+          applyChunk(content)
+        }
+      } catch (e) {
+        console.error('解析消息失败:', e, '原始:', dataStr)
+        handleError(e, aiMessageIndex)
+        return true
+      }
+      return false
+    }
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (value) {
+        buffer += decoder.decode(value, { stream: true })
+        buffer = buffer.replace(/\r\n/g, '\n')
+      }
+      let sep: number
+      while ((sep = buffer.indexOf('\n\n')) >= 0) {
+        const rawBlock = buffer.slice(0, sep)
+        buffer = buffer.slice(sep + 2)
+        if (processBlock(rawBlock)) {
           return
         }
-
-        // 解析 JSON 包装数据：{ d: chunk }
-        const parsed = JSON.parse(event.data)
-        const content = parsed.d
-
-        // 拼接内容
-        if (content !== undefined && content !== null) {
-          // 检查是否在底部（在内容更新前检查）
-          const container = messagesContainer.value
-          const threshold = 50 // 阈值
-          const isAtBottom = container 
-            ? container.scrollHeight - container.scrollTop - container.clientHeight <= threshold
-            : true
-
-          // 安全地更新消息内容
-          if (messages.value[aiMessageIndex]) {
-            const aiMessage = messages.value[aiMessageIndex]
-            if (isAgentMode) {
-              // agent 模式：先按结构化消息解析，失败时降级为纯文本
-              const inner = parseAgentInnerMessage(content)
-              if (inner) {
-                const aiTextDelta = appendAgentChunkToMessage(aiMessage, inner)
-                if (aiTextDelta) {
-                  fullContent += aiTextDelta
-                }
-              } else {
-                fullContent += content
-              }
-            } else {
-              fullContent += content
-            }
-            aiMessage.content = fullContent
-            messages.value[aiMessageIndex].loading = false
-            
-            // 只有当用户原本在底部时才自动滚动
-            // 流式输出时使用 auto 滚动，避免 smooth 带来的卡顿
-            if (isAtBottom) {
-              scrollToBottom(true)
-            }
-          }
-        }
-      } catch (error) {
-        console.error('解析消息失败:', error, '原始数据:', event.data)
-        handleError(error, aiMessageIndex)
+      }
+      if (done) {
+        break
       }
     }
-
-    // 处理done事件
-    eventSource.addEventListener('done', function () {
-      if (streamCompleted) return
-
-      streamCompleted = true
+    if (buffer.trim()) {
+      processBlock(buffer)
+    }
+    if (!streamCompleted) {
+      finishStream()
+    }
+  } catch (error: unknown) {
+    const err = error as { name?: string }
+    if (err?.name === 'AbortError') {
       isGenerating.value = false
-      eventSource?.close()
-      if (currentEventSource.value === eventSource) {
-        currentEventSource.value = null
+      if (currentStreamAbort.value === ac) {
+        currentStreamAbort.value = null
       }
       if (currentGeneratingAiIndex.value === aiMessageIndex) {
         currentGeneratingAiIndex.value = null
       }
       if (messages.value[aiMessageIndex]) {
         messages.value[aiMessageIndex].loading = false
-        // 仅用于去重的运行时字段，结束后移除
         delete messages.value[aiMessageIndex].seenToolRequestIds
       }
-
-      // 异步获取“猜你想问”，不影响主对话流程
-      if (fullContent && messages.value[aiMessageIndex]) {
-        fetchSuggestions(userMessage, fullContent, aiMessageIndex)
-      }
-      
-       // 确保消息已保存，重新加载应用列表以更新对话标题（重置）
-       setTimeout(() => {
-         loadAppList(true)
-       }, 500)
-    })
-
-    // 处理错误
-    eventSource.onerror = function (error) {
-      if (streamCompleted || !isGenerating.value) return
-      
-      console.error('SSE连接错误:', error, 'readyState:', eventSource?.readyState)
-      
-      // 检查是否是正常的连接关闭
-      if (eventSource?.readyState === EventSource.CLOSED) {
-        streamCompleted = true
-        isGenerating.value = false
-        if (currentEventSource.value === eventSource) {
-          currentEventSource.value = null
-        }
-        if (currentGeneratingAiIndex.value === aiMessageIndex) {
-          currentGeneratingAiIndex.value = null
-        }
-      } else if (eventSource?.readyState === EventSource.CONNECTING) {
-        // 连接中，可能是重连，暂时不处理
-        return
-      } else {
-        // 显示错误提示，建议联系管理员
-        Modal.error({
-          title: 'AI服务异常',
-          content: '当前AI模型可能配置有误或服务异常，请联系管理员检查大模型配置。',
-          okText: '知道了',
-        })
-        handleError(new Error('SSE连接错误'), aiMessageIndex)
-      }
+      return
     }
-  } catch (error) {
-    console.error('创建 EventSource 失败：', error)
+    console.error('流式对话失败：', error)
+    Modal.error({
+      title: 'AI服务异常',
+      content: '当前AI模型可能配置有误或服务异常，请联系管理员检查大模型配置。',
+      okText: '知道了',
+    })
     handleError(error, aiMessageIndex)
   }
 }
@@ -1155,10 +1417,8 @@ const handleError = (error: unknown, aiMessageIndex: number) => {
   if (currentGeneratingAiIndex.value === aiMessageIndex) {
     currentGeneratingAiIndex.value = null
   }
-  if (currentEventSource.value) {
-    currentEventSource.value.close()
-    currentEventSource.value = null
-  }
+  currentStreamAbort.value?.abort()
+  currentStreamAbort.value = null
 }
 
 // 滚动到底部
@@ -1400,7 +1660,7 @@ onMounted(() => {
   max-width: 800px;
   background: transparent;
   border-top: none;
-  padding: 8px 20px;
+  padding: 6px 20px;
 }
 
 .chat-container.chat-centered .welcome-section {
@@ -1421,7 +1681,7 @@ onMounted(() => {
 /* 输入区域固定 */
 .input-area-fixed {
   flex-shrink: 0;
-  padding: 8px 72px 12px 72px;
+  padding: 6px 72px 8px 72px;
   background: #fff;
   border-top: 1px solid #f0f0f0;
   position: sticky;
@@ -1434,7 +1694,7 @@ onMounted(() => {
   background: #fff;
   border: 1px solid #d9d9d9;
   border-radius: 12px;
-  padding: 12px;
+  padding: 8px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
   transition: all 0.3s;
 }
@@ -1447,17 +1707,46 @@ onMounted(() => {
 .chat-input {
   border: none !important;
   resize: none;
-  padding-right: 50px;
+  padding-right: 8px;
+  padding-bottom: 36px;
+  min-height: 0;
   box-shadow: none !important;
+}
+
+.chat-file-input-hidden {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pending-attachments {
+  margin-bottom: 4px;
+}
+
+.pending-attachments-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .input-actions {
   position: absolute;
-  bottom: 12px;
-  right: 12px;
+  bottom: 8px;
+  right: 8px;
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+.input-plus-btn {
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.input-wrapper.is-dragover {
+  border-color: #1890ff;
+  background: #f0f7ff;
 }
 
 .agent-btn {
@@ -1690,6 +1979,22 @@ onMounted(() => {
   justify-content: flex-end;
   align-items: flex-start;
   gap: 12px;
+}
+
+.user-message-main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.user-attachment-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  max-width: min(100%, 420px);
 }
 
 .ai-message {

@@ -42,6 +42,11 @@ public class ChatHistory implements Serializable {
     private String message;
 
     /**
+     * 用户消息附件（JSON 数组：[{url,name,size,type?}]，type 见 ChatAttachmentType）
+     */
+    private String attachments;
+
+    /**
      * 消息类型：user/ai
      */
     @Column("messageType")

@@ -546,7 +546,7 @@ const parseBoundaryInput = (value: string) => {
     list.push(num)
   }
   for (let i = 1; i < list.length; i++) {
-    if (list[i] <= list[i - 1]) {
+    if (list[i]! <= list[i - 1]!) {
       return { valid: false, list: [], message: '分界点必须严格递增' }
     }
   }
@@ -565,7 +565,7 @@ const syncRangesByBoundaries = () => {
   formState.ranges = parsed.list.map((max, index) => {
     const old = oldRanges[index] || defaultRange()
     return {
-      min: index === 0 ? 0 : parsed.list[index - 1] + 1,
+      min: index === 0 ? 0 : parsed.list[index - 1]! + 1,
       max,
       riskLevel: old.riskLevel ?? 0,
       assessmentResult: old.assessmentResult || '',
@@ -632,7 +632,7 @@ const buildPayload = () => {
         throw new Error(`请完善第${index + 1}段建议`)
       }
       return {
-        min: index === 0 ? 0 : boundaries[index - 1] + 1,
+        min: index === 0 ? 0 : boundaries[index - 1]! + 1,
         max: boundaries[index],
         riskLevel: Number(range.riskLevel),
         assessmentResult: range.assessmentResult.trim(),

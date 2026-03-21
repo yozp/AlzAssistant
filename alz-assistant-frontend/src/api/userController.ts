@@ -252,3 +252,15 @@ export async function uploadAvatarByUrl(
     ...(options || {}),
   })
 }
+
+/** POST /user/upload/chat-attachment 聊天附件上传（multipart） */
+export async function uploadChatAttachment(
+  body: FormData,
+  options?: { [key: string]: any }
+) {
+  return request<API.BaseResponseChatAttachmentUploadResult>('/user/upload/chat-attachment', {
+    method: 'POST',
+    data: body,
+    ...(options || {}),
+  })
+}

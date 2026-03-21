@@ -29,6 +29,13 @@ public interface ChatHistoryService extends IService<ChatHistory> {
     boolean addChatMessage(Long appId, String message, String messageType, Long userId);
 
     /**
+     * 添加对话历史消息（可选用户附件 JSON）
+     *
+     * @param attachmentsJson 用户消息附件 JSON，可为 null
+     */
+    boolean addChatMessage(Long appId, String message, String messageType, Long userId, String attachmentsJson);
+
+    /**
      * 根据应用id删除对话历史消息
      *
      * @param appId 应用id

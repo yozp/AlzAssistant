@@ -16,6 +16,7 @@ import com.yzj.alzassistant.exception.ErrorCode;
 import com.yzj.alzassistant.exception.ThrowUtils;
 import com.yzj.alzassistant.model.dto.app.AppAddRequest;
 import com.yzj.alzassistant.model.dto.app.AppAdminUpdateRequest;
+import com.yzj.alzassistant.model.dto.app.ChatAttachmentItem;
 import com.yzj.alzassistant.model.dto.app.AppQueryRequest;
 import com.yzj.alzassistant.model.dto.app.AppSuggestionsRequest;
 import com.yzj.alzassistant.model.dto.app.AppUpdateRequest;
@@ -233,10 +234,41 @@ public class AppController {
         User loginUser = userService.getLoginUser(request);
         // 调用服务生成代码（流式），chatType 可选覆盖应用默认对话类型，userLocation 为前端传来的用户实时位置（经度,纬度）
         Flux<String> contentFlux = appService.chatToGen(appId, message, loginUser, chatType, userLocation);
-        // 转换为 ServerSentEvent 格式
+        return wrapChatFlux(contentFlux);
+    }
+
+    /**
+     * 应用与用户聊天（流式）。
+     *
+     * @param appId        应用主键
+     * @param message      用户消息
+     * @param chatType     对话类型（如 agent）
+     * @param userLocation 用户实时位置，格式 经度,纬度（可选，用于报告智能体附近医院搜索）
+     * @param attachments  用户消息附件（JSON 数组：[{url,name,size,type?}]，type 见 ChatAttachmentType）
+     * @param request      HttpServletRequest
+     * @return 聊天流式结果
+     */
+    @PostMapping(value = "/chat", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<String>> doChatWithSSEPost(@RequestParam Long appId,
+                                                           @RequestParam(required = false) String message,
+                                                           @RequestParam(required = false) String chatType,
+                                                           @RequestParam(required = false) String userLocation,
+                                                           @RequestBody(required = false) List<ChatAttachmentItem> attachments,
+                                                           HttpServletRequest request) {
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID无效");
+        User loginUser = userService.getLoginUser(request);
+        String msg = StrUtil.nullToDefault(message, "");
+        String attachmentsJson = null;
+        if (attachments != null && !attachments.isEmpty()) {
+            attachmentsJson = JSONUtil.toJsonStr(attachments);
+        }
+        Flux<String> contentFlux = appService.chatToGen(appId, msg, loginUser, chatType, userLocation, attachmentsJson);
+        return wrapChatFlux(contentFlux);
+    }
+
+    private Flux<ServerSentEvent<String>> wrapChatFlux(Flux<String> contentFlux) {
         return contentFlux
                 .map(chunk -> {
-                    // 将内容包装成JSON对象，解决空格丢失问题
                     Map<String, String> wrapper = Map.of("d", chunk);
                     String jsonData = JSONUtil.toJsonStr(wrapper);
                     return ServerSentEvent.<String>builder()
@@ -244,7 +276,6 @@ public class AppController {
                             .build();
                 })
                 .concatWith(Mono.just(
-                        // 发送结束事件
                         ServerSentEvent.<String>builder()
                                 .event("done")
                                 .data("")
