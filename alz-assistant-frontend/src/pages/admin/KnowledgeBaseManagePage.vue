@@ -85,7 +85,7 @@
           <a-tag>{{ record.fileType || '-' }}</a-tag>
         </template>
         <template v-else-if="column.dataIndex === 'fileUrl'">
-          <a v-if="record.fileUrl" :href="record.fileUrl" target="_blank" style="color: #1890ff">
+          <a v-if="record.fileUrl" :href="record.fileUrl" target="_blank" style="color: var(--app-accent)">
             下载
           </a>
           <span v-else>-</span>
@@ -711,13 +711,13 @@ onMounted(() => {
 }
 
 .upload-dragger-large :deep(.ant-upload-drag:hover) {
-  border-color: #1890ff;
+  border-color: var(--app-accent);
   background: #f0f8ff;
 }
 
 .upload-dragger-large :deep(.ant-upload-drag-icon) {
   font-size: 64px;
-  color: #1890ff;
+  color: var(--app-accent);
   margin-bottom: 20px;
 }
 

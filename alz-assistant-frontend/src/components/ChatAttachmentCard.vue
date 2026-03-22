@@ -114,8 +114,8 @@ const secondaryLine = computed(() => {
   gap: 10px;
   padding: 10px 12px;
   min-width: 0;
-  background: #fff;
-  border: 1px solid #e8e8e8;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border-strong);
   border-radius: 12px;
   text-decoration: none;
   color: inherit;
@@ -123,7 +123,7 @@ const secondaryLine = computed(() => {
 }
 
 a.chat-attachment-card:hover {
-  border-color: #1890ff;
+  border-color: var(--app-accent);
 }
 
 .chat-attachment-card.is-disabled {
@@ -139,8 +139,8 @@ a.chat-attachment-card:hover {
   align-items: center;
   justify-content: center;
   font-size: 22px;
-  color: #1890ff;
-  background: #e6f7ff;
+  color: var(--app-accent);
+  background: var(--app-accent-soft);
   border-radius: 8px;
 }
 

@@ -173,9 +173,12 @@ const doLogout = async () => {
 
 <style scoped>
 .header {
-  background: #fff;
-  padding: 0 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  background: var(--app-header-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  padding: 0 20px;
+  box-shadow: var(--app-shadow-sm);
+  border-bottom: 1px solid var(--app-border);
   height: 64px;
   line-height: 64px;
 }
@@ -195,8 +198,11 @@ const doLogout = async () => {
 
 .site-title {
   margin: 0;
-  font-size: 16px;
-  color: #1890ff;
+  font-family: var(--app-font-display);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--app-accent);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

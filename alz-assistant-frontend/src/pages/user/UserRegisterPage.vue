@@ -1,21 +1,51 @@
 <template>
-  <div id="userRegisterPage">
-    <h2 class="title">阿尔茨海默症智能问答系统 - 用户注册</h2>
-    <div class="desc">AI智能助手，为您提供专业的健康咨询服务</div>
-    <a-form :model="formState" name="basic" autocomplete="off" @finish="handleSubmit">
-      <a-form-item name="userAccount" :rules="[{ required: true, message: '请输入账号' }]">
-        <a-input v-model:value="formState.userAccount" placeholder="请输入账号" />
+  <AuthPageShell>
+    <div class="auth-form-header">
+      <p class="auth-eyebrow">开始使用</p>
+      <h1 class="auth-title">创建账号</h1>
+      <p class="auth-desc">注册后即可保存对话、使用评估记录与更多功能</p>
+    </div>
+    <a-form
+      class="auth-form"
+      :model="formState"
+      name="register"
+      autocomplete="on"
+      layout="vertical"
+      required-mark="optional"
+      @finish="handleSubmit"
+    >
+      <a-form-item label="账号" name="userAccount" :rules="[{ required: true, message: '请输入账号' }]">
+        <a-input
+          v-model:value="formState.userAccount"
+          placeholder="设置登录账号（建议字母或数字）"
+          size="large"
+          allow-clear
+        >
+          <template #prefix>
+            <UserOutlined class="auth-input-icon" />
+          </template>
+        </a-input>
       </a-form-item>
       <a-form-item
+        label="密码"
         name="userPassword"
         :rules="[
           { required: true, message: '请输入密码' },
           { min: 8, message: '密码不能小于 8 位' },
         ]"
       >
-        <a-input-password v-model:value="formState.userPassword" placeholder="请输入密码" />
+        <a-input-password
+          v-model:value="formState.userPassword"
+          placeholder="至少 8 位字符"
+          size="large"
+        >
+          <template #prefix>
+            <LockOutlined class="auth-input-icon" />
+          </template>
+        </a-input-password>
       </a-form-item>
       <a-form-item
+        label="确认密码"
         name="checkPassword"
         :rules="[
           { required: true, message: '请确认密码' },
@@ -23,24 +53,36 @@
           { validator: validateCheckPassword },
         ]"
       >
-        <a-input-password v-model:value="formState.checkPassword" placeholder="请确认密码" />
+        <a-input-password
+          v-model:value="formState.checkPassword"
+          placeholder="再次输入密码"
+          size="large"
+        >
+          <template #prefix>
+            <LockOutlined class="auth-input-icon" />
+          </template>
+        </a-input-password>
       </a-form-item>
-      <div class="tips">
-        已有账号？
-        <RouterLink to="/user/login">去登录</RouterLink>
-      </div>
-      <a-form-item>
-        <a-button type="primary" html-type="submit" style="width: 100%">注册</a-button>
+      <a-form-item class="auth-submit-wrap">
+        <a-button type="primary" html-type="submit" block size="large" class="auth-submit-btn">
+          注册
+        </a-button>
       </a-form-item>
     </a-form>
-  </div>
+    <div class="auth-footer-row">
+      <span class="auth-muted">已有账号？</span>
+      <RouterLink to="/user/login" class="auth-link">去登录</RouterLink>
+    </div>
+  </AuthPageShell>
 </template>
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import { userRegister } from '@/api/userController.ts'
+import { userRegister } from '@/api/userController'
 import { message } from 'ant-design-vue'
 import { reactive } from 'vue'
+import { UserOutlined, LockOutlined } from '@ant-design/icons-vue'
+import AuthPageShell from '@/components/auth/AuthPageShell.vue'
 
 const router = useRouter()
 
@@ -50,13 +92,7 @@ const formState = reactive<API.UserRegisterRequest>({
   checkPassword: '',
 })
 
-/**
- * 验证确认密码
- * @param rule
- * @param value
- * @param callback
- */
-const validateCheckPassword = (rule: unknown, value: string, callback: (error?: Error) => void) => {
+const validateCheckPassword = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
   if (value && value !== formState.userPassword) {
     callback(new Error('两次输入密码不一致'))
   } else {
@@ -64,13 +100,8 @@ const validateCheckPassword = (rule: unknown, value: string, callback: (error?: 
   }
 }
 
-/**
- * 提交表单
- * @param values
- */
 const handleSubmit = async (values: API.UserRegisterRequest) => {
   const res = await userRegister(values)
-  // 注册成功，跳转到登录页面
   if (res.data.code === 0) {
     message.success('注册成功')
     router.push({
@@ -84,29 +115,75 @@ const handleSubmit = async (values: API.UserRegisterRequest) => {
 </script>
 
 <style scoped>
-#userRegisterPage {
-  background: white;
-  max-width: 720px;
-  padding: 24px;
-  margin: 24px auto;
+.auth-form-header {
+  margin-bottom: 24px;
 }
 
-.title {
-  text-align: center;
-  margin-bottom: 16px;
-}
-
-.desc {
-  text-align: center;
-  color: #bbb;
-  margin-bottom: 16px;
-}
-
-.tips {
-  margin-bottom: 16px;
-  color: #bbb;
+.auth-eyebrow {
+  margin: 0 0 8px;
   font-size: 13px;
-  text-align: right;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--app-accent);
+}
+
+.auth-title {
+  margin: 0 0 10px;
+  font-family: var(--app-font-display);
+  font-size: 1.65rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--app-text);
+  line-height: 1.25;
+}
+
+.auth-desc {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--app-text-muted);
+}
+
+.auth-form :deep(.ant-form-item-label > label) {
+  font-weight: 500;
+  color: var(--app-text-secondary);
+}
+
+.auth-input-icon {
+  color: var(--app-text-muted);
+}
+
+.auth-submit-wrap {
+  margin-bottom: 8px;
+}
+
+.auth-submit-btn {
+  height: 44px;
+  font-weight: 500;
+  font-size: 15px;
+}
+
+.auth-footer-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 4px;
+  font-size: 14px;
+}
+
+.auth-muted {
+  color: var(--app-text-muted);
+}
+
+.auth-link {
+  font-weight: 500;
+  color: var(--app-accent);
+}
+
+.auth-link:hover {
+  color: var(--app-accent-hover);
 }
 </style>
-

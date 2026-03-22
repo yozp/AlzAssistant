@@ -21,17 +21,29 @@
 
 <style scoped>
 .footer {
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(10px);
+  background: var(--app-header-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   text-align: center;
-  padding: 20px;
-  border-top: 1px solid rgba(102, 126, 234, 0.1);
+  padding: 16px 20px;
+  border-top: 1px solid var(--app-border);
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.4) inset;
 }
 
 .copyright {
   margin: 0;
-  color: #666;
-  font-size: 14px;
+  color: var(--app-text-muted);
+  font-size: 13px;
+}
+
+.author-link {
+  color: var(--app-text-secondary);
+  transition: color 0.2s ease;
+}
+
+.author-link:hover {
+  color: var(--app-accent);
+  background: transparent;
 }
 </style>
 

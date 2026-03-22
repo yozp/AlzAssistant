@@ -44,7 +44,7 @@ const renderedContent = computed(() => {
 <style scoped>
 .markdown-content {
   line-height: 1.6;
-  color: #333;
+  color: var(--app-text);
   word-wrap: break-word;
   overflow-wrap: break-word;
   font-size: 15px;
@@ -60,7 +60,7 @@ const renderedContent = computed(() => {
   margin: 1em 0 0.4em 0;
   font-weight: 600;
   line-height: 1.25;
-  color: #262626;
+  color: var(--app-text);
 }
 
 .markdown-content :deep(h1:first-child),
@@ -74,13 +74,13 @@ const renderedContent = computed(() => {
 
 .markdown-content :deep(h1) {
   font-size: 24px;
-  border-bottom: 1px solid #e8e8e8;
+  border-bottom: 1px solid var(--app-border-strong);
   padding-bottom: 8px;
 }
 
 .markdown-content :deep(h2) {
   font-size: 20px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--app-border);
   padding-bottom: 6px;
 }
 
@@ -95,7 +95,7 @@ const renderedContent = computed(() => {
 .markdown-content :deep(h5),
 .markdown-content :deep(h6) {
   font-size: 15px;
-  color: #595959;
+  color: var(--app-text-muted);
 }
 
 /* 段落样式 */
@@ -133,12 +133,12 @@ const renderedContent = computed(() => {
 /* 强调样式 */
 .markdown-content :deep(strong) {
   font-weight: 600;
-  color: #262626;
+  color: var(--app-text);
 }
 
 .markdown-content :deep(em) {
   font-style: italic;
-  color: #595959;
+  color: var(--app-text-muted);
 }
 
 /* 代码样式 */
@@ -172,11 +172,11 @@ const renderedContent = computed(() => {
 
 /* 引用样式 */
 .markdown-content :deep(blockquote) {
-  border-left: 4px solid #1890ff;
+  border-left: 4px solid var(--app-accent);
   padding: 0.5em 1em;
   margin: 0.8em 0;
-  background: rgba(24, 144, 255, 0.05);
-  color: #595959;
+  background: var(--app-accent-soft);
+  color: var(--app-text-secondary);
   border-radius: 4px;
 }
 
@@ -186,13 +186,13 @@ const renderedContent = computed(() => {
 
 /* 链接样式 */
 .markdown-content :deep(a) {
-  color: #1890ff;
+  color: var(--app-accent);
   text-decoration: none;
   transition: color 0.3s ease;
 }
 
 .markdown-content :deep(a:hover) {
-  color: #40a9ff;
+  color: var(--app-accent-hover);
   text-decoration: underline;
 }
 
@@ -201,35 +201,35 @@ const renderedContent = computed(() => {
   border-collapse: collapse;
   width: 100%;
   margin: 0.8em 0;
-  border: 1px solid #e8e8e8;
+  border: 1px solid var(--app-border-strong);
   display: block;
   overflow-x: auto;
 }
 
 .markdown-content :deep(thead) {
-  background-color: #fafafa;
+  background-color: var(--app-surface-elevated);
 }
 
 .markdown-content :deep(th),
 .markdown-content :deep(td) {
-  border: 1px solid #e8e8e8;
+  border: 1px solid var(--app-border-strong);
   padding: 8px 12px;
   text-align: left;
 }
 
 .markdown-content :deep(th) {
   font-weight: 600;
-  background-color: #fafafa;
+  background-color: var(--app-surface-elevated);
 }
 
 .markdown-content :deep(table tr:nth-child(even)) {
-  background: #fafafa;
+  background: var(--app-surface-muted);
 }
 
 /* 分隔线 */
 .markdown-content :deep(hr) {
   border: none;
-  border-top: 1px solid #e8e8e8;
+  border-top: 1px solid var(--app-border-strong);
   margin: 1em 0;
 }
 

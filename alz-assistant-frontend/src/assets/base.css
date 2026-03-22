@@ -34,6 +34,29 @@
   --color-text: var(--vt-c-text-light-1);
 
   --section-gap: 160px;
+
+  /* AlzAssistant UI tokens — 温暖、可信赖的医疗咨询气质 */
+  --app-font-sans: 'Outfit', 'Segoe UI', system-ui, sans-serif;
+  --app-font-display: 'Fraunces', 'Georgia', 'Times New Roman', serif;
+  --app-accent: #0d9488;
+  --app-accent-hover: #0f766e;
+  --app-accent-muted: #115e59;
+  --app-accent-soft: rgba(13, 148, 136, 0.12);
+  --app-accent-soft-strong: rgba(13, 148, 136, 0.2);
+  --app-surface: #ffffff;
+  --app-surface-muted: #f7f5f2;
+  --app-surface-elevated: #faf9f7;
+  --app-text: #1c1917;
+  --app-text-secondary: #44403c;
+  --app-text-muted: #78716c;
+  --app-border: rgba(28, 25, 23, 0.09);
+  --app-border-strong: rgba(28, 25, 23, 0.14);
+  --app-radius-sm: 10px;
+  --app-radius: 14px;
+  --app-radius-lg: 18px;
+  --app-shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.05);
+  --app-shadow-md: 0 4px 20px rgba(28, 25, 23, 0.07);
+  --app-header-bg: rgba(255, 255, 255, 0.82);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -47,6 +70,23 @@
 
     --color-heading: var(--vt-c-text-dark-1);
     --color-text: var(--vt-c-text-dark-2);
+
+    --app-accent: #2dd4bf;
+    --app-accent-hover: #5eead4;
+    --app-accent-muted: #99f6e4;
+    --app-accent-soft: rgba(45, 212, 191, 0.16);
+    --app-accent-soft-strong: rgba(45, 212, 191, 0.26);
+    --app-surface: #1c1917;
+    --app-surface-muted: #292524;
+    --app-surface-elevated: #23201d;
+    --app-text: #f5f5f4;
+    --app-text-secondary: #d6d3d1;
+    --app-text-muted: #a8a29e;
+    --app-border: rgba(245, 245, 244, 0.1);
+    --app-border-strong: rgba(245, 245, 244, 0.16);
+    --app-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --app-shadow-md: 0 8px 32px rgba(0, 0, 0, 0.45);
+    --app-header-bg: rgba(28, 25, 23, 0.82);
   }
 }
 
@@ -60,27 +100,26 @@
 
 body {
   min-height: 100vh;
-  color: var(--color-text);
-  background: var(--color-background);
+  color: var(--app-text);
+  background-color: var(--app-surface-muted);
+  background-image:
+    radial-gradient(ellipse 100% 60% at 50% -15%, rgba(13, 148, 136, 0.09), transparent 52%),
+    radial-gradient(ellipse 80% 50% at 100% 100%, rgba(13, 148, 136, 0.05), transparent 45%);
   transition:
-    color 0.5s,
-    background-color 0.5s;
+    color 0.35s ease,
+    background-color 0.35s ease;
   line-height: 1.6;
-  font-family:
-    Inter,
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    Roboto,
-    Oxygen,
-    Ubuntu,
-    Cantarell,
-    'Fira Sans',
-    'Droid Sans',
-    'Helvetica Neue',
-    sans-serif;
+  font-family: var(--app-font-sans);
   font-size: 15px;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background-image:
+      radial-gradient(ellipse 100% 55% at 50% -12%, rgba(45, 212, 191, 0.12), transparent 50%),
+      radial-gradient(ellipse 70% 45% at 0% 100%, rgba(45, 212, 191, 0.06), transparent 48%);
+  }
 }

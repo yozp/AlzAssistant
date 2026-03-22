@@ -102,7 +102,7 @@
                       <path 
                         d="M 0,50 L 920,50 L 935,45 L 950,50 L 960,65 L 980,10 L 1000,90 L 1015,45 L 1030,50 L 1050,45 L 1065,50 L 2000,50" 
                         fill="none" 
-                        stroke="#e5e5e5" 
+                        stroke="var(--app-border-strong)" 
                         stroke-width="3" 
                         stroke-linecap="round"
                         stroke-linejoin="round"
@@ -167,7 +167,7 @@
                 </div>
                 <div v-else class="ai-message">
                   <div class="message-avatar">
-                    <a-avatar :size="40" style="background-color: #1890ff">AI</a-avatar>
+                    <a-avatar :size="40" style="background-color: var(--app-accent)">AI</a-avatar>
                   </div>
                   <div class="ai-message-body">
                     <div class="message-content">
@@ -710,15 +710,19 @@ const formatTime = (time?: string) => {
 }
 
 // 加载应用列表（首次加载或重置）
-const loadAppList = async (reset = false) => {
+/** silent：后台刷新，不先清空列表、不显示全屏 loading，避免侧边栏对话列表闪烁 */
+const loadAppList = async (reset = false, opts?: { silent?: boolean }) => {
+  const silent = opts?.silent === true
   if (!loginUserStore.loginUser.id) {
     appList.value = []
     return
   }
 
-  // 如果是重置，清空列表并重置分页
+  // 如果是重置，清空列表并重置分页（静默刷新保留旧列表直到新数据返回）
   if (reset) {
-    appList.value = []
+    if (!silent) {
+      appList.value = []
+    }
     pagination.value = {
       pageNum: 1,
       pageSize: 20,
@@ -732,7 +736,9 @@ const loadAppList = async (reset = false) => {
     return
   }
 
-  loadingApps.value = true
+  if (!silent) {
+    loadingApps.value = true
+  }
   try {
     const res = await listMyAppVoByPage({
       pageNum: pagination.value.pageNum,
@@ -756,8 +762,8 @@ const loadAppList = async (reset = false) => {
       pagination.value.hasMore =
         appList.value.length < total && records.length === pagination.value.pageSize
 
-      // 如果是首次加载（重置）且还没有恢复过状态，则尝试恢复上次的状态
-      if (reset && appList.value.length > 0 && !hasRestoredState.value) {
+      // 如果是首次加载（重置）且还没有恢复过状态，则尝试恢复上次的状态（静默刷新不参与）
+      if (reset && !silent && appList.value.length > 0 && !hasRestoredState.value) {
         hasRestoredState.value = true // 标记已经恢复过状态
         const lastAppId = localStorage.getItem('lastActiveChatId')
         
@@ -783,7 +789,9 @@ const loadAppList = async (reset = false) => {
     console.error('加载应用列表失败：', error)
     message.error('加载应用列表失败')
   } finally {
-    loadingApps.value = false
+    if (!silent) {
+      loadingApps.value = false
+    }
   }
 }
 
@@ -1225,8 +1233,8 @@ const handleCreateNewAppForChat = async (
      if (res.data.code === 0 && res.data.data) {
        // 设置当前应用ID（不调用selectApp，避免清空消息）
        currentAppId.value = String(res.data.data)
-       // 重新加载应用列表（重置）
-       loadAppList(true)
+       // 重新加载应用列表（静默刷新，避免列表闪动）
+       loadAppList(true, { silent: true })
        return true
     } else {
       message.error('创建失败：' + res.data.message)
@@ -1322,7 +1330,7 @@ const generateChat = async (
       fetchSuggestions(suggestionUserText, fullContent, aiMessageIndex)
     }
     setTimeout(() => {
-      loadAppList(true)
+      loadAppList(true, { silent: true })
     }, 500)
   }
 
@@ -1535,8 +1543,8 @@ const performDeleteApp = async (appId: string | number) => {
         messages.value = []
       }
       
-      // 重新加载应用列表
-      await loadAppList(true)
+      // 重新加载应用列表（静默刷新）
+      await loadAppList(true, { silent: true })
     } else {
       message.error(res.data.message || '删除失败')
     }
@@ -1579,6 +1587,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  color: var(--app-text);
 }
 
 .page-container {
@@ -1592,8 +1601,8 @@ onMounted(() => {
 /* 侧边栏样式 */
 .sidebar-container {
   width: 0;
-  background-color: #f9f9f9;
-  border-right: 1px solid #eee;
+  background-color: var(--app-surface-elevated);
+  border-right: 1px solid var(--app-border);
   transition: width 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
   overflow: hidden;
   display: flex;
@@ -1622,17 +1631,18 @@ onMounted(() => {
 }
 
 .sidebar-title {
+  font-family: var(--app-font-display);
   font-size: 16px;
-  font-weight: bold;
-  color: #333;
+  font-weight: 600;
+  color: var(--app-text);
 }
 
 .close-sidebar-btn {
-  color: #999;
+  color: var(--app-text-muted);
 }
 
 .close-sidebar-btn:hover {
-  color: #333;
+  color: var(--app-text);
 }
 
 .new-chat-wrapper {
@@ -1651,7 +1661,7 @@ onMounted(() => {
   display: block;
   position: relative;
   min-width: 0;
-  background: #fff;
+  background: var(--app-surface);
   overflow-y: auto;
   overflow-x: hidden;
   height: 100%;
@@ -1662,12 +1672,12 @@ onMounted(() => {
   top: 16px;
   margin-left: 16px;
   z-index: 10;
-  color: #666;
+  color: var(--app-text-muted);
   float: left; /* 确保不占据整行 */
 }
 
 .sidebar-trigger:hover {
-  color: #1890ff;
+  color: var(--app-accent);
 }
 
 /* 聊天容器 */
@@ -1685,14 +1695,19 @@ onMounted(() => {
 .chat-container.chat-centered {
   justify-content: center;
   align-items: center;
+  gap: 6px;
 }
 
 .chat-container.chat-centered .messages-scroll-area {
   flex: 0 0 auto;
   width: 100%;
-  padding-top: 0;
+  padding: 8px 20px 0;
   display: flex;
   justify-content: center;
+}
+
+.chat-container.chat-centered .messages-content {
+  padding-bottom: 6px;
 }
 
 .chat-container.chat-centered .input-area-fixed {
@@ -1701,12 +1716,13 @@ onMounted(() => {
   max-width: 800px;
   background: transparent;
   border-top: none;
-  padding: 6px 20px;
+  padding: 2px 20px 8px;
 }
 
 .chat-container.chat-centered .welcome-section {
   min-height: auto;
-  padding: 0 0 16px 0;
+  padding: 4px 12px 0;
+  gap: 12px;
 }
 
 /* 消息列表区域 */
@@ -1723,8 +1739,8 @@ onMounted(() => {
 .input-area-fixed {
   flex-shrink: 0;
   padding: 6px 72px 8px 72px;
-  background: #fff;
-  border-top: 1px solid #f0f0f0;
+  background: var(--app-surface);
+  border-top: 1px solid var(--app-border);
   position: sticky;
   bottom: 0;
   z-index: 10;
@@ -1732,17 +1748,17 @@ onMounted(() => {
 
 .input-wrapper {
   position: relative;
-  background: #fff;
-  border: 1px solid #d9d9d9;
-  border-radius: 12px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border-strong);
+  border-radius: var(--app-radius);
   padding: 8px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s;
+  box-shadow: var(--app-shadow-sm);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 .input-wrapper:focus-within {
-  border-color: #1890ff;
-  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.15);
+  border-color: var(--app-accent);
+  box-shadow: 0 0 0 3px var(--app-accent-soft);
 }
 
 .chat-input {
@@ -1782,29 +1798,29 @@ onMounted(() => {
 }
 
 .input-plus-btn {
-  color: rgba(0, 0, 0, 0.65);
+  color: var(--app-text-secondary);
 }
 
 .input-wrapper.is-dragover {
-  border-color: #1890ff;
-  background: #f0f7ff;
+  border-color: var(--app-accent);
+  background: var(--app-accent-soft);
 }
 
 .knowledge-btn {
-  color: rgba(0, 0, 0, 0.65);
+  color: var(--app-text-secondary);
 }
 
 .knowledge-btn:hover:not(:disabled) {
-  color: #1890ff;
+  color: var(--app-accent);
 }
 
 .knowledge-btn--selected {
-  color: #1890ff !important;
-  background: rgba(24, 144, 255, 0.12) !important;
+  color: var(--app-accent) !important;
+  background: var(--app-accent-soft) !important;
 }
 
 .agent-btn {
-  color: rgba(0, 0, 0, 0.65);
+  color: var(--app-text-secondary);
 }
 
 .agent-btn:hover:not(:disabled) {
@@ -1822,10 +1838,11 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 300px;
-  padding: 40px 0;
+  min-height: 200px;
+  padding: 20px 16px;
   text-align: center;
   position: relative;
+  row-gap: 0;
 }
 
 /* 入场动画 */
@@ -1910,11 +1927,14 @@ onMounted(() => {
 }
 
 .greeting-title {
-  font-size: 24px;
-  color: #333;
+  font-family: var(--app-font-display);
+  font-size: clamp(1.2rem, 2.2vw, 1.45rem);
+  color: var(--app-text);
   margin: 0;
-  font-weight: 500;
-  line-height: 1.5;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+  max-width: 36em;
 }
 
 .welcome-icon {
@@ -1924,7 +1944,7 @@ onMounted(() => {
 
 .welcome-title {
   font-size: 24px;
-  color: #333;
+  color: var(--app-text);
   margin: 0;
 }
 
@@ -1932,24 +1952,29 @@ onMounted(() => {
 .recommended-scales {
   display: flex;
   justify-content: center;
-  gap: 16px;
-  margin-top: 32px;
+  gap: 12px;
+  margin-top: 0;
   flex-wrap: wrap;
 }
 
 .scale-card {
-  background: #f5f5f5;
-  border-radius: 12px;
-  padding: 16px 24px;
+  background: var(--app-surface-muted);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-sm);
+  padding: 10px 18px;
   cursor: pointer;
-  transition: all 0.3s;
+  transition:
+    background 0.25s ease,
+    border-color 0.25s ease,
+    transform 0.25s ease;
   min-width: 120px;
   text-align: center;
 }
 
 .scale-card:hover {
-  background: #e6f7ff;
-  color: #1890ff;
+  background: var(--app-accent-soft);
+  border-color: color-mix(in srgb, var(--app-accent) 35%, transparent);
+  color: var(--app-accent);
   transform: translateY(-2px);
 }
 
@@ -1962,28 +1987,32 @@ onMounted(() => {
 .hot-questions {
   display: flex;
   justify-content: center;
-  gap: 12px;
-  margin-top: 24px;
+  gap: 10px;
+  margin-top: 0;
   flex-wrap: wrap;
 }
 
 .hot-question-item {
-  background: #fff;
-  border: 1px solid #e8e8e8;
-  border-radius: 20px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border-strong);
+  border-radius: 999px;
   padding: 8px 16px;
   font-size: 13px;
-  color: #666;
+  color: var(--app-text-secondary);
   cursor: pointer;
-  transition: all 0.3s;
+  transition:
+    border-color 0.25s ease,
+    color 0.25s ease,
+    box-shadow 0.25s ease;
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
 .hot-question-item:hover {
-  border-color: #1890ff;
-  color: #1890ff;
+  border-color: var(--app-accent);
+  color: var(--app-accent);
+  box-shadow: var(--app-shadow-sm);
 }
 
 .hot-question-icon {
@@ -1999,28 +2028,30 @@ onMounted(() => {
 
 .scale-select-item {
   padding: 16px;
-  border: 1px solid #f0f0f0;
-  border-radius: 8px;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-sm);
   margin-bottom: 12px;
   cursor: pointer;
-  transition: all 0.3s;
+  transition:
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
 }
 
 .scale-select-item:hover {
-  border-color: #1890ff;
-  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.1);
+  border-color: var(--app-accent);
+  box-shadow: var(--app-shadow-md);
 }
 
 .scale-select-title {
   font-size: 16px;
   font-weight: 500;
-  color: #333;
+  color: var(--app-text);
   margin-bottom: 8px;
 }
 
 .scale-select-intro {
   font-size: 13px;
-  color: #999;
+  color: var(--app-text-muted);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -2070,8 +2101,8 @@ onMounted(() => {
 }
 
 .user-message .message-content {
-  background: #1890ff;
-  color: white;
+  background: linear-gradient(135deg, var(--app-accent) 0%, var(--app-accent-hover) 100%);
+  color: #fff;
   margin-left: 52px;
 }
 
@@ -2085,8 +2116,9 @@ onMounted(() => {
 }
 
 .ai-message .message-content {
-  background: #f5f5f5;
-  color: #333;
+  background: var(--app-surface-muted);
+  color: var(--app-text);
+  border: 1px solid var(--app-border);
   margin-right: 52px;
   width: fit-content;
   max-width: 100%;
@@ -2109,21 +2141,21 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #666;
+  color: var(--app-text-muted);
   margin-top: 4px;
 }
 
 .tool-stream-wrapper {
   margin-top: 10px;
   padding: 10px;
-  border-radius: 8px;
-  background: #fafafa;
-  border: 1px solid #f0f0f0;
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-elevated);
+  border: 1px solid var(--app-border);
 }
 
 .tool-stream-title {
   font-size: 12px;
-  color: #999;
+  color: var(--app-text-muted);
   margin-bottom: 8px;
 }
 
@@ -2132,7 +2164,7 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: #555;
+  color: var(--app-text-secondary);
   margin-bottom: 6px;
 }
 
@@ -2149,8 +2181,8 @@ onMounted(() => {
 }
 
 .tool-stream-tag.pending {
-  color: #0958d9;
-  background: #e6f4ff;
+  color: var(--app-accent-muted);
+  background: var(--app-accent-soft);
 }
 
 .tool-stream-tag.done {
@@ -2164,7 +2196,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 40px;
-  color: #666;
+  color: var(--app-text-muted);
   gap: 10px;
 }
 
@@ -2186,22 +2218,25 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   padding: 8px 12px;
-  border-radius: 8px;
+  border-radius: var(--app-radius-sm);
   width: fit-content;
   max-width: 100%;
   box-sizing: border-box;
-  background: #fafafa;
-  border: 1px solid #f0f0f0;
-  color: #555;
+  background: var(--app-surface-elevated);
+  border: 1px solid var(--app-border);
+  color: var(--app-text-secondary);
   cursor: pointer;
   user-select: none;
-  transition: all 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease;
 }
 
 .suggestion-item:hover {
-  border-color: #d6e4ff;
-  background: #f0f5ff;
-  color: #1d39c4;
+  border-color: color-mix(in srgb, var(--app-accent) 40%, transparent);
+  background: var(--app-accent-soft);
+  color: var(--app-accent-hover);
 }
 
 .suggestion-text {
@@ -2221,17 +2256,21 @@ onMounted(() => {
   justify-content: space-between;
   padding: 10px 12px;
   margin-bottom: 4px;
-  border-radius: 6px;
+  border-radius: var(--app-radius-sm);
+  border: 1px solid transparent;
   cursor: pointer;
-  transition: all 0.2s;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
 }
 
 .chat-item:hover {
-  background-color: #e6e6e6;
+  background-color: var(--app-surface-muted);
 }
 
 .chat-item.active {
-  background-color: #e6f7ff;
+  background-color: var(--app-accent-soft);
+  border: 1px solid color-mix(in srgb, var(--app-accent) 25%, transparent);
 }
 
 .chat-item-content {
@@ -2243,7 +2282,7 @@ onMounted(() => {
 
 .chat-title {
   font-size: 14px;
-  color: #333;
+  color: var(--app-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2251,7 +2290,7 @@ onMounted(() => {
 
 .chat-time {
   font-size: 12px;
-  color: #999;
+  color: var(--app-text-muted);
 }
 
 .delete-btn {
@@ -2288,7 +2327,11 @@ onMounted(() => {
   }
 
   .chat-container.chat-centered .input-area-fixed {
-    padding: 20px 16px;
+    padding: 6px 16px 12px;
+  }
+
+  .chat-container.chat-centered .messages-scroll-area {
+    padding: 6px 16px 0;
   }
 
   .user-message .message-content {

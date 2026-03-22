@@ -339,7 +339,7 @@ onMounted(() => {
 }
 
 .text-muted {
-  color: #999;
+  color: var(--app-text-muted);
 }
 
 .record-details {
@@ -349,7 +349,7 @@ onMounted(() => {
 .score-text {
   font-size: 18px;
   font-weight: bold;
-  color: #1890ff;
+  color: var(--app-accent);
 }
 
 .report-section {
@@ -357,7 +357,7 @@ onMounted(() => {
 }
 
 .report-link {
-  color: #1890ff;
+  color: var(--app-accent);
   text-decoration: none;
 }
 
@@ -373,20 +373,21 @@ onMounted(() => {
   font-size: 16px;
   font-weight: bold;
   margin-bottom: 16px;
-  border-left: 4px solid #1890ff;
+  border-left: 4px solid var(--app-accent);
   padding-left: 8px;
 }
 
 .answers-list {
-  background: #f9f9f9;
-  border-radius: 8px;
+  background: var(--app-surface-muted);
+  border-radius: var(--app-radius-sm);
   padding: 16px;
+  border: 1px solid var(--app-border);
 }
 
 .answer-item {
   margin-bottom: 16px;
   padding-bottom: 16px;
-  border-bottom: 1px dashed #e8e8e8;
+  border-bottom: 1px dashed var(--app-border-strong);
 }
 
 .answer-item:last-child {
@@ -398,22 +399,22 @@ onMounted(() => {
 .question-title {
   font-weight: 500;
   margin-bottom: 8px;
-  color: #333;
+  color: var(--app-text);
 }
 
 .answer-content {
-  color: #666;
+  color: var(--app-text-secondary);
   padding-left: 16px;
 }
 
 .answer-content .value {
-  color: #1890ff;
+  color: var(--app-accent);
   font-weight: 500;
   margin-right: 8px;
 }
 
 .answer-content .score {
-  color: #999;
+  color: var(--app-text-muted);
   font-size: 13px;
 }
 </style>
