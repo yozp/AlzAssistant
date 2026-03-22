@@ -365,7 +365,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, computed, watch } from 'vue'
+import { ref, onMounted, onActivated, nextTick, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser'
@@ -392,6 +392,8 @@ import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import ScaleTestModal from '@/components/ScaleTestModal.vue'
 import ChatAttachmentCard from '@/components/ChatAttachmentCard.vue'
 import { listAssessmentScaleVOByPage } from '@/api/assessmentScaleController'
+
+defineOptions({ name: 'HomePage' })
 
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
@@ -526,6 +528,33 @@ interface Message {
 
 const MAX_CHAT_ATTACHMENTS = 6
 
+/** 未选中对话（新对话）时消息桶的 key */
+const NEW_CHAT_KEY = '__new__'
+
+/** 按对话 ID 分桶缓存消息，切换侧边栏对话不销毁、流式仍写入对应桶（与 ChatGPT 等多会话行为一致） */
+const messagesByAppId = ref<Record<string, Message[]>>({})
+/** 本会话已从本机加载/产生过该对话内容，再切入时不再请求历史覆盖，避免打断流式或闪白 */
+const sessionChatHydrated = ref<Record<string, boolean>>({})
+
+const chatKeyForAppId = (appId: string | undefined) => appId ?? NEW_CHAT_KEY
+
+const messages = computed({
+  get(): Message[] {
+    const key = chatKeyForAppId(currentAppId.value)
+    if (!messagesByAppId.value[key]) {
+      messagesByAppId.value[key] = []
+    }
+    return messagesByAppId.value[key]
+  },
+  set(next: Message[]) {
+    const key = chatKeyForAppId(currentAppId.value)
+    messagesByAppId.value[key] = next
+  },
+})
+
+/** 当前正在流式生成所绑定的 appId（可与 currentAppId 不同：用户已切到别的对话） */
+const activeStreamAppId = ref<string | null>(null)
+
 interface PendingChatAttachment {
   id: string
   name: string
@@ -540,7 +569,6 @@ const pendingAttachments = ref<PendingChatAttachment[]>([])
 const chatFileInputRef = ref<HTMLInputElement>()
 const inputDragOver = ref(false)
 
-const messages = ref<Message[]>([])
 const userInput = ref('')
 const isGenerating = ref(false)
 
@@ -654,24 +682,30 @@ const onSuggestionClick = (text: string) => {
   sendMessage()
 }
 
-const fetchSuggestions = async (userQuestion: string, aiResponse: string, aiMessageIndex: number) => {
-  if (!currentAppId.value) {
+const fetchSuggestions = async (
+  userQuestion: string,
+  aiResponse: string,
+  aiMessageIndex: number,
+  streamAppId: string
+) => {
+  if (!streamAppId) {
     return
   }
-  if (!messages.value[aiMessageIndex] || messages.value[aiMessageIndex].type !== 'ai') {
+  const list = messagesByAppId.value[streamAppId]
+  if (!list?.[aiMessageIndex] || list[aiMessageIndex].type !== 'ai') {
     return
   }
   try {
     const res = await getAppSuggestions({
       // 后端接收 Long，前端用 string 存储，这里用 any 传递即可被解析
-      appId: currentAppId.value as any,
+      appId: streamAppId as any,
       userQuestion,
       aiResponse,
     })
     if (res.data.code === 0 && Array.isArray(res.data.data)) {
-      // 消息可能已被清空（例如切换会话），所以再次校验索引
-      if (messages.value[aiMessageIndex] && messages.value[aiMessageIndex].type === 'ai') {
-        messages.value[aiMessageIndex].suggestions = res.data.data
+      const again = messagesByAppId.value[streamAppId]
+      if (again?.[aiMessageIndex] && again[aiMessageIndex].type === 'ai') {
+        again[aiMessageIndex].suggestions = res.data.data
         // 弹出猜你想问后自动滚动到底部，确保所有建议问题可见
         nextTick(() => scrollToBottom(true))
       }
@@ -920,11 +954,18 @@ const selectApp = async (appId: string | number | undefined) => {
   currentAppId.value = appIdStr
   // 立即持久化，确保返回主页能恢复（不依赖 watch 时机）
   localStorage.setItem('lastActiveChatId', appIdStr)
-  // 清空当前消息列表
-  messages.value = []
-  loadingHistory.value = true
 
-  // 加载该应用的对话历史
+  // 本会话已缓存过该对话（含流式进行中的内容），直接还原，禁止用接口结果覆盖
+  if (sessionChatHydrated.value[appIdStr]) {
+    await nextTick()
+    scrollToBottom(true)
+    return
+  }
+
+  loadingHistory.value = true
+  messages.value = []
+
+  // 首次进入该对话：从服务端加载历史
   try {
     const res = await listAppChatHistory({
       // API 类型里是 number，但后端是 Long，传 string 也能被解析
@@ -934,7 +975,7 @@ const selectApp = async (appId: string | number | undefined) => {
 
     if (res.data.code === 0 && res.data.data) {
       const chatHistories = res.data.data.records || []
-      
+
       if (chatHistories.length === 0) {
         // 如果没有历史记录，显示欢迎信息
         message.info('该对话暂无历史记录')
@@ -956,6 +997,7 @@ const selectApp = async (appId: string | number | undefined) => {
         await nextTick()
         scrollToBottom(true) // 加载历史记录后瞬间滚动到底部
       }
+      sessionChatHydrated.value[appIdStr] = true
     } else {
       message.error(res.data.message || '加载对话历史失败')
     }
@@ -1190,18 +1232,20 @@ const stopGenerating = async () => {
   currentStreamAbort.value = null
 
   const aiIndex = currentGeneratingAiIndex.value
-  if (aiIndex !== null && messages.value[aiIndex]) {
-    messages.value[aiIndex].loading = false
-    delete messages.value[aiIndex].seenToolRequestIds
+  const sid = activeStreamAppId.value
+  if (aiIndex !== null && sid && messagesByAppId.value[sid]?.[aiIndex]) {
+    messagesByAppId.value[sid][aiIndex].loading = false
+    delete messagesByAppId.value[sid][aiIndex].seenToolRequestIds
   }
   currentGeneratingAiIndex.value = null
+  activeStreamAppId.value = null
 
-  const appId = currentAppId.value
+  const appId = sid ?? currentAppId.value
   if (!appId) {
     return
   }
   try {
-    await stopChat({ appId })
+    await stopChat({ appId: appId as any })
   } catch (error) {
     console.warn('停止生成请求失败：', error)
   }
@@ -1231,8 +1275,13 @@ const handleCreateNewAppForChat = async (
     })
 
      if (res.data.code === 0 && res.data.data) {
-       // 设置当前应用ID（不调用selectApp，避免清空消息）
-       currentAppId.value = String(res.data.data)
+       const newId = String(res.data.data)
+       // 把「新对话」桶里的消息迁到真实 appId，避免切换 currentAppId 后消息丢在 __new__ 桶里
+       const moved = messagesByAppId.value[NEW_CHAT_KEY] ?? []
+       messagesByAppId.value[newId] = moved
+       messagesByAppId.value[NEW_CHAT_KEY] = []
+       sessionChatHydrated.value[newId] = true
+       currentAppId.value = newId
        // 重新加载应用列表（静默刷新，避免列表闪动）
        loadAppList(true, { silent: true })
        return true
@@ -1263,11 +1312,16 @@ const generateChat = async (
     return
   }
 
-  if (!messages.value[aiMessageIndex]) {
-    console.error('消息索引无效:', aiMessageIndex, '消息数组长度:', messages.value.length)
-    handleError(new Error('消息索引无效'), aiMessageIndex)
+  const streamAppId = String(currentAppId.value)
+  const streamMessages = () => messagesByAppId.value[streamAppId]
+
+  if (!streamMessages()?.[aiMessageIndex]) {
+    console.error('消息索引无效:', aiMessageIndex, '消息数组长度:', streamMessages()?.length)
+    handleError(new Error('消息索引无效'), aiMessageIndex, streamAppId)
     return
   }
+
+  activeStreamAppId.value = streamAppId
 
   const ac = new AbortController()
   currentStreamAbort.value = ac
@@ -1284,14 +1338,15 @@ const generateChat = async (
       : '')
 
   const applyChunk = (rawChunk: string) => {
-    if (!messages.value[aiMessageIndex]) return
+    const list = streamMessages()
+    if (!list?.[aiMessageIndex]) return
     const container = messagesContainer.value
     const threshold = 50
     const isAtBottom = container
       ? container.scrollHeight - container.scrollTop - container.clientHeight <= threshold
       : true
 
-    const aiMessage = messages.value[aiMessageIndex]
+    const aiMessage = list[aiMessageIndex]
     if (isAgentMode) {
       const inner = parseAgentInnerMessage(rawChunk)
       if (inner) {
@@ -1306,7 +1361,7 @@ const generateChat = async (
       fullContent += rawChunk
     }
     aiMessage.content = fullContent
-    messages.value[aiMessageIndex].loading = false
+    list[aiMessageIndex].loading = false
     if (isAtBottom) {
       scrollToBottom(true)
     }
@@ -1322,12 +1377,16 @@ const generateChat = async (
     if (currentGeneratingAiIndex.value === aiMessageIndex) {
       currentGeneratingAiIndex.value = null
     }
-    if (messages.value[aiMessageIndex]) {
-      messages.value[aiMessageIndex].loading = false
-      delete messages.value[aiMessageIndex].seenToolRequestIds
+    if (activeStreamAppId.value === streamAppId) {
+      activeStreamAppId.value = null
     }
-    if (fullContent && messages.value[aiMessageIndex]) {
-      fetchSuggestions(suggestionUserText, fullContent, aiMessageIndex)
+    const list = streamMessages()
+    if (list?.[aiMessageIndex]) {
+      list[aiMessageIndex].loading = false
+      delete list[aiMessageIndex].seenToolRequestIds
+    }
+    if (fullContent && list?.[aiMessageIndex]) {
+      fetchSuggestions(suggestionUserText, fullContent, aiMessageIndex, streamAppId)
     }
     setTimeout(() => {
       loadAppList(true, { silent: true })
@@ -1335,7 +1394,7 @@ const generateChat = async (
   }
 
   try {
-    const qs = new URLSearchParams({ appId: String(currentAppId.value) })
+    const qs = new URLSearchParams({ appId: streamAppId })
     if (userMessage) qs.set('message', userMessage)
     if (chatType) qs.set('chatType', chatType)
     if (userLocation) qs.set('userLocation', userLocation)
@@ -1352,13 +1411,13 @@ const generateChat = async (
     })
 
     if (!res.ok) {
-      handleError(new Error(`HTTP ${res.status}`), aiMessageIndex)
+      handleError(new Error(`HTTP ${res.status}`), aiMessageIndex, streamAppId)
       return
     }
 
     const reader = res.body?.getReader()
     if (!reader) {
-      handleError(new Error('无法读取响应流'), aiMessageIndex)
+      handleError(new Error('无法读取响应流'), aiMessageIndex, streamAppId)
       return
     }
 
@@ -1388,7 +1447,7 @@ const generateChat = async (
         }
       } catch (e) {
         console.error('解析消息失败:', e, '原始:', dataStr)
-        handleError(e, aiMessageIndex)
+        handleError(e, aiMessageIndex, streamAppId)
         return true
       }
       return false
@@ -1428,9 +1487,13 @@ const generateChat = async (
       if (currentGeneratingAiIndex.value === aiMessageIndex) {
         currentGeneratingAiIndex.value = null
       }
-      if (messages.value[aiMessageIndex]) {
-        messages.value[aiMessageIndex].loading = false
-        delete messages.value[aiMessageIndex].seenToolRequestIds
+      if (activeStreamAppId.value === streamAppId) {
+        activeStreamAppId.value = null
+      }
+      const list = streamMessages()
+      if (list?.[aiMessageIndex]) {
+        list[aiMessageIndex].loading = false
+        delete list[aiMessageIndex].seenToolRequestIds
       }
       return
     }
@@ -1440,31 +1503,36 @@ const generateChat = async (
       content: '当前AI模型可能配置有误或服务异常，请联系管理员检查大模型配置。',
       okText: '知道了',
     })
-    handleError(error, aiMessageIndex)
+    handleError(error, aiMessageIndex, streamAppId)
   }
 }
 
 // 错误处理函数
-const handleError = (error: unknown, aiMessageIndex: number) => {
+const handleError = (error: unknown, aiMessageIndex: number, streamAppId?: string) => {
   console.error('生成失败：', error)
-  
+
+  const list =
+    streamAppId != null ? messagesByAppId.value[streamAppId] : messages.value
+
   // 安全地更新错误消息
-  if (messages.value[aiMessageIndex]) {
-    messages.value[aiMessageIndex].content = 'AI回复失败: ' + JSON.stringify(error)
-    messages.value[aiMessageIndex].loading = false
-    delete messages.value[aiMessageIndex].seenToolRequestIds
-  } else {
-    // 如果消息对象不存在，创建一个新的错误消息
-    messages.value.push({
+  if (list?.[aiMessageIndex]) {
+    list[aiMessageIndex].content = 'AI回复失败: ' + JSON.stringify(error)
+    list[aiMessageIndex].loading = false
+    delete list[aiMessageIndex].seenToolRequestIds
+  } else if (list) {
+    list.push({
       type: 'ai',
       content: 'AI回复失败: ' + JSON.stringify(error),
       loading: false,
     })
   }
-  
+
   isGenerating.value = false
   if (currentGeneratingAiIndex.value === aiMessageIndex) {
     currentGeneratingAiIndex.value = null
+  }
+  if (streamAppId != null && activeStreamAppId.value === streamAppId) {
+    activeStreamAppId.value = null
   }
   currentStreamAbort.value?.abort()
   currentStreamAbort.value = null
@@ -1536,13 +1604,17 @@ const performDeleteApp = async (appId: string | number) => {
 
     if (res.data.code === 0 && res.data.data) {
       message.success('删除成功')
-      
+
+      const idStr = String(appId)
+      delete messagesByAppId.value[idStr]
+      delete sessionChatHydrated.value[idStr]
+
       // 如果删除的是当前选中的应用，清空消息
       if (currentAppId.value === String(appId)) {
         currentAppId.value = undefined
         messages.value = []
       }
-      
+
       // 重新加载应用列表（静默刷新）
       await loadAppList(true, { silent: true })
     } else {
@@ -1578,6 +1650,13 @@ onMounted(() => {
     loadAppList(true)
   }
   loadScales()
+})
+
+// 从管理页等路由返回时：组件被 keep-alive 缓存，流式输出未中断；此处把视图滚到最新内容
+onActivated(() => {
+  if (isGenerating.value) {
+    nextTick(() => scrollToBottom(true))
+  }
 })
 </script>
 

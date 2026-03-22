@@ -2,9 +2,13 @@
   <a-layout class="basic-layout">
     <!-- 顶部导航栏 -->
     <GlobalHeader class="fixed-header" />
-    <!-- 主要内容区域 -->
+    <!-- 主要内容区域：缓存主页，离开路由时对话与流式输出不销毁（与主流 AI 站点行为一致） -->
     <a-layout-content class="main-content">
-      <router-view />
+      <router-view v-slot="{ Component }">
+        <keep-alive include="HomePage">
+          <component :is="Component" />
+        </keep-alive>
+      </router-view>
     </a-layout-content>
     <!-- 底部版权信息 -->
     <GlobalFooter class="fixed-footer" />
