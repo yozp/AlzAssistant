@@ -21,6 +21,7 @@ import com.yzj.alzassistant.model.dto.app.AppQueryRequest;
 import com.yzj.alzassistant.model.entity.App;
 import com.yzj.alzassistant.mapper.AppMapper;
 import com.yzj.alzassistant.model.entity.User;
+import com.yzj.alzassistant.model.enums.ChatAttachmentType;
 import com.yzj.alzassistant.model.enums.ChatHistoryMessageTypeEnum;
 import com.yzj.alzassistant.model.enums.ChatTypeEnum;
 import com.yzj.alzassistant.model.vo.AppVO;
@@ -40,6 +41,7 @@ import reactor.core.publisher.Flux;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.Locale;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -223,7 +225,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
     }
 
     /**
-     * 合成发给模型的用户文本：正文 + 附件链接列表
+     * 合成发给模型的用户文本：正文 + 附件链接列表；按需提示调用 recognizeImage / parseDocument。
      */
     private String buildMessageForAi(String message, String attachmentsJson) {
         StringBuilder sb = new StringBuilder();
@@ -235,6 +237,8 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
                 sb.append("\n\n");
             }
             sb.append("用户附件链接：\n");
+            boolean hasImageAttachment = false;
+            boolean hasDocumentAttachment = false;
             try {
                 JSONArray arr = JSONUtil.parseArray(attachmentsJson);
                 for (int i = 0; i < arr.size(); i++) {
@@ -244,19 +248,81 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
                     }
                     String url = o.getStr("url");
                     if (StrUtil.isNotBlank(url)) {
-                        sb.append(url);
                         String attType = o.getStr("type");
+                        if (attachmentLooksLikeImage(url, attType)) {
+                            hasImageAttachment = true;
+                        }
+                        if (attachmentNeedsDocumentParse(url, attType)) {
+                            hasDocumentAttachment = true;
+                        }
+                        sb.append(url);
                         if (StrUtil.isNotBlank(attType)) {
                             sb.append("  [type=").append(attType).append(']');
                         }
+                        String attName = o.getStr("name");
+                        if (StrUtil.isNotBlank(attName)) {
+                            sb.append("  [filename=").append(attName).append(']');
+                        }
                         sb.append('\n');
                     }
+                }
+                if (hasImageAttachment) {
+                    sb.append("\n说明：消息中含图片时，请先对每条图片链接依次调用 recognizeImage 工具获取描述，再结合用户问题作答；勿仅根据链接猜测图片内容。\n");
+                }
+                if (hasDocumentAttachment) {
+                    sb.append("说明：消息中含文档或表格时，请先对每条对应链接调用 parseDocument：第一个参数为该链接 URL，第二个参数传入同条中的 filename 原始文件名（含扩展名）；若 URL 路径已含正确后缀，第二个参数可留空。再结合正文回答用户问题。\n");
                 }
             } catch (Exception e) {
                 log.warn("解析附件 JSON 失败: {}", attachmentsJson, e);
             }
         }
         return sb.toString();
+    }
+
+    /**
+     * 附件是否看起来像图片
+     */
+    private static boolean attachmentLooksLikeImage(String url, String type) {
+        String t = StrUtil.blankToDefault(type, "").trim();
+        if (ChatAttachmentType.IMAGE.getCode().equalsIgnoreCase(t)) {
+            return true;
+        }
+        if (StrUtil.isNotBlank(t)) {
+            return false;
+        }
+        String lower = urlPathWithoutQuery(url).toLowerCase(Locale.ROOT);
+        return lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg")
+                || lower.endsWith(".gif") || lower.endsWith(".webp");
+    }
+
+    /**
+     * 非图片附件（文档/纯文本/表格），需走 parseDocument；排除已判为图片的项。
+     */
+    private static boolean attachmentNeedsDocumentParse(String url, String type) {
+        if (attachmentLooksLikeImage(url, type)) {
+            return false;
+        }
+        String t = StrUtil.blankToDefault(type, "").trim();
+        if (ChatAttachmentType.DOCUMENT.getCode().equalsIgnoreCase(t)
+                || ChatAttachmentType.TEXT.getCode().equalsIgnoreCase(t)
+                || ChatAttachmentType.SPREADSHEET.getCode().equalsIgnoreCase(t)) {
+            return true;
+        }
+        if (StrUtil.isNotBlank(t)) {
+            return false;
+        }
+        String lower = urlPathWithoutQuery(url).toLowerCase(Locale.ROOT);
+        return lower.endsWith(".doc") || lower.endsWith(".docx") || lower.endsWith(".pdf")
+                || lower.endsWith(".txt") || lower.endsWith(".md") || lower.endsWith(".markdown")
+                || lower.endsWith(".xls") || lower.endsWith(".xlsx");
+    }
+
+    /**
+     * 获取 URL 路径，不包含查询参数
+     */
+    private static String urlPathWithoutQuery(String url) {
+        int q = url.indexOf('?');
+        return q >= 0 ? url.substring(0, q) : url;
     }
 
     @Override

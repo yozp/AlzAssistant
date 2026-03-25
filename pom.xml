@@ -138,6 +138,13 @@
             <version>1.1.0-beta7</version>
         </dependency>
 
+        <!-- 阿里云 DashScope 原生 SDK（多模态图片理解 qwen-vl，与 LangChain4j 并行使用） -->
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>dashscope-sdk-java</artifactId>
+            <version>2.22.1</version>
+        </dependency>
+
         <!-- LangChain4j Ollama集成Spring Boot启动器 -->
         <dependency>
             <groupId>dev.langchain4j</groupId>

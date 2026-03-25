@@ -1,5 +1,7 @@
 package com.yzj.alzassistant.ai;
 
+import com.yzj.alzassistant.ai.tools.DocumentParseTool;
+import com.yzj.alzassistant.ai.tools.ImageRecognitionTool;
 import com.yzj.alzassistant.ai.tools.MapSearchTool;
 import com.yzj.alzassistant.ai.tools.PDFReportTool;
 import com.yzj.alzassistant.ai.tools.TerminateTool;
@@ -11,7 +13,6 @@ import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.service.AiServices;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
@@ -36,6 +37,12 @@ public class MedicalAiServiceFactory {
     @Resource
     private TerminateTool terminateTool;
 
+    @Resource
+    private ImageRecognitionTool imageRecognitionTool;
+
+    @Resource
+    private DocumentParseTool documentParseTool;
+
     /**
      * 获取 MedicalAiService 实例（延迟创建，使用当前活跃的 StreamingChatModel）
      */
@@ -56,7 +63,7 @@ public class MedicalAiServiceFactory {
                         .id(memoryId)
                         .maxMessages(50)
                         .build())
-                .tools(mapSearchTool, pdfReportTool, webSearchTool, terminateTool)
+                .tools(mapSearchTool, pdfReportTool, webSearchTool, terminateTool, imageRecognitionTool, documentParseTool)
                 .hallucinatedToolNameStrategy(toolExecutionRequest -> ToolExecutionResultMessage.from(
                         toolExecutionRequest,
                         "Error: there is no tool called " + toolExecutionRequest.name()))

@@ -37,3 +37,5 @@ application-local.yml
 application-prod.yml
 yu-ai-code-mother-frontend
 tmp/
+/src/main/resources/literature/image/
+/src/main/resources/literature/architecture/

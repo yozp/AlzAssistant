@@ -2,6 +2,8 @@ package com.yzj.alzassistant.ai;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.yzj.alzassistant.ai.tools.DocumentParseTool;
+import com.yzj.alzassistant.ai.tools.ImageRecognitionTool;
 import com.yzj.alzassistant.ai.tools.TimeInfoTool;
 import com.yzj.alzassistant.ai.tools.WebScrapingTool;
 import com.yzj.alzassistant.ai.tools.WebSearchTool;
@@ -84,6 +86,12 @@ public class AiChatServiceFactory {
     @Resource
     private WebSearchTool webSearchTool;
 
+    @Resource
+    private ImageRecognitionTool imageRecognitionTool;
+
+    @Resource
+    private DocumentParseTool documentParseTool;
+
     //--------------------------------------------------------------------------------------------------------------------
 
     /**
@@ -165,7 +173,9 @@ public class AiChatServiceFactory {
                 .streamingChatModel(streamingChatModel)
                 .tools(timeInfoTool,
                         webScrapingTool,
-                        webSearchTool)
+                        webSearchTool,
+                        imageRecognitionTool,
+                        documentParseTool)
                 .chatMemory(chatMemory);
         if (useRag) {
             builder.contentRetriever(contentRetriever);
