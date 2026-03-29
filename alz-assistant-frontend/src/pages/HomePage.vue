@@ -225,13 +225,7 @@
 
           <!-- 输入区域 (固定底部) -->
           <div class="input-area-fixed">
-            <div
-              class="input-wrapper"
-              :class="{ 'is-dragover': inputDragOver }"
-              @dragover.prevent="inputDragOver = true"
-              @dragleave.prevent="onInputDragLeave"
-              @drop.prevent="onInputDrop"
-            >
+            <div class="input-wrapper" :class="{ 'is-dragover': inputDragOver }">
               <input
                 ref="chatFileInputRef"
                 type="file"
@@ -365,7 +359,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onActivated, nextTick, computed, watch } from 'vue'
+import { ref, onMounted, onActivated, onDeactivated, nextTick, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser'
@@ -1028,21 +1022,6 @@ const openChatFilePicker = () => {
   chatFileInputRef.value?.click()
 }
 
-const onInputDragLeave = (e: DragEvent) => {
-  const cur = e.currentTarget as Node | null
-  const rel = e.relatedTarget as Node | null
-  if (cur && rel && cur.contains(rel)) return
-  inputDragOver.value = false
-}
-
-const onInputDrop = (e: DragEvent) => {
-  inputDragOver.value = false
-  const files = e.dataTransfer?.files
-  if (files?.length) {
-    addChatFiles(Array.from(files))
-  }
-}
-
 const onChatFileInputChange = (e: Event) => {
   const input = e.target as HTMLInputElement
   const files = input.files
@@ -1117,6 +1096,50 @@ const uploadOnePending = async (id: string, file: File) => {
 
 const removePendingAttachment = (id: string) => {
   pendingAttachments.value = pendingAttachments.value.filter((p) => p.id !== id)
+}
+
+let fileDragDepth = 0
+const isFileDrag = (e: DragEvent) => e.dataTransfer?.types.includes('Files') ?? false
+const onDocDragEnter = (e: DragEvent) => {
+  if (!isFileDrag(e)) return
+  e.preventDefault()
+  fileDragDepth++
+  if (fileDragDepth === 1) inputDragOver.value = true
+}
+const onDocDragLeave = (e: DragEvent) => {
+  if (!isFileDrag(e)) return
+  e.preventDefault()
+  fileDragDepth--
+  if (fileDragDepth <= 0) {
+    fileDragDepth = 0
+    inputDragOver.value = false
+  }
+}
+const onDocDragOver = (e: DragEvent) => {
+  if (!isFileDrag(e)) return
+  e.preventDefault()
+}
+const onDocDrop = (e: DragEvent) => {
+  if (!isFileDrag(e)) return
+  e.preventDefault()
+  fileDragDepth = 0
+  inputDragOver.value = false
+  const files = e.dataTransfer?.files
+  if (files?.length) addChatFiles(Array.from(files))
+}
+const bindChatFileDropListeners = () => {
+  document.addEventListener('dragenter', onDocDragEnter, true)
+  document.addEventListener('dragleave', onDocDragLeave, true)
+  document.addEventListener('dragover', onDocDragOver, true)
+  document.addEventListener('drop', onDocDrop, true)
+}
+const unbindChatFileDropListeners = () => {
+  document.removeEventListener('dragenter', onDocDragEnter, true)
+  document.removeEventListener('dragleave', onDocDragLeave, true)
+  document.removeEventListener('dragover', onDocDragOver, true)
+  document.removeEventListener('drop', onDocDrop, true)
+  fileDragDepth = 0
+  inputDragOver.value = false
 }
 
 // 请求用户位置（用于报告智能体推荐附近医院），返回 "经度,纬度" 或 null
@@ -1654,9 +1677,14 @@ onMounted(() => {
 
 // 从管理页等路由返回时：组件被 keep-alive 缓存，流式输出未中断；此处把视图滚到最新内容
 onActivated(() => {
+  bindChatFileDropListeners()
   if (isGenerating.value) {
     nextTick(() => scrollToBottom(true))
   }
+})
+
+onDeactivated(() => {
+  unbindChatFileDropListeners()
 })
 </script>
 
